@@ -1,6 +1,7 @@
-function createFocusNextAddon() {
+function createFocusNextAddon(mainPath) {
   return JSB.defineClass("FocusNextAddon : JSExtension", {
     sceneWillConnect: function () {
+      self.__focusNextMainPath = mainPath;
       self.focusNextEnabled = __FOCUS_NEXT_CORE_GLOBAL__.enabled();
       self.__focusNextRememberToken = 0;
       self.__focusNextPlaceToken = 0;
@@ -21,6 +22,7 @@ function createFocusNextAddon() {
     },
 
     notebookWillOpen: function () {
+      __FOCUS_NEXT_COMMENTS_GLOBAL__.cancel(self);
       __FOCUS_NEXT_COMMANDS_GLOBAL__.cancelClick(self);
       __FOCUS_NEXT_SETTINGS_GLOBAL__.hide(self);
       self.__focusNextLastFocus = null;
@@ -50,8 +52,13 @@ function createFocusNextAddon() {
     setOrdinalEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "ordinal", Boolean(sender.on)); },
     setPreviousEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "previous", Boolean(sender.on)); },
     setSourceEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "source", Boolean(sender.on)); },
+    setCollapseCommentsEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "collapseComments", Boolean(sender.on)); },
+    setExpandCommentsEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "expandComments", Boolean(sender.on)); },
 
     pressOriginal: function () { __FOCUS_NEXT_SOURCE_GLOBAL__.press(self); },
+    pressComments: function () { __FOCUS_NEXT_COMMENTS_GLOBAL__.press(self); },
+    collapseComments: function () { __FOCUS_NEXT_COMMENTS_GLOBAL__.perform(self, true); },
+    expandComments: function () { __FOCUS_NEXT_COMMENTS_GLOBAL__.perform(self, false); },
     openOriginal: function () {
       if (self.__focusNextSuppressTap) {
         self.__focusNextSuppressTap = false;
@@ -67,6 +74,7 @@ function createFocusNextAddon() {
     },
 
     sceneWillResignActive: function () {
+      __FOCUS_NEXT_COMMENTS_GLOBAL__.cancel(self);
       __FOCUS_NEXT_SOURCE_GLOBAL__.clear(self);
       __FOCUS_NEXT_COMMANDS_GLOBAL__.cancelClick(self);
       __FOCUS_NEXT_SETTINGS_GLOBAL__.hide(self);
@@ -132,6 +140,12 @@ function createFocusNextAddon() {
     },
     handleFocusSourceButtonPan: function (recognizer) {
       __FOCUS_NEXT_UI_GLOBAL__.handleSourcePan(self, recognizer);
+    },
+    handleFocusCollapseCommentsPan: function (recognizer) {
+      __FOCUS_NEXT_UI_GLOBAL__.handleCollapseCommentsPan(self, recognizer);
+    },
+    handleFocusExpandCommentsPan: function (recognizer) {
+      __FOCUS_NEXT_UI_GLOBAL__.handleExpandCommentsPan(self, recognizer);
     },
   });
 }

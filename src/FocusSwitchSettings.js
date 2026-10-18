@@ -1,7 +1,12 @@
 var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
   const PANEL_WIDTH = 340;
   const HEADER_HEIGHT = 56;
+  const FOOTER_HEIGHT = 16;
+  const FOOTER_TOP_MARGIN = 15;
+  // 对齐 Ink to Card 的 12 点页面底部内边距与 2 点页脚外边距。
+  const FOOTER_BOTTOM_MARGIN = 14;
   const ROW_HEIGHT = 88;
+  const MAX_VISIBLE_ROWS = 5;
   const PANEL_POSITION_KEY = "cn.marginnote.focus-next.settings-panel-position";
   const EDGE_MARGIN = 12;
   const options = [
@@ -10,6 +15,8 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     { key: "ordinal", title: "显示卡片序号", description: "在上一张和下一张按钮中显示当前序号与同级卡片总数", action: "setOrdinalEnabled:" },
     { key: "previous", title: "显示上一张", description: "关闭后隐藏上一张按钮，保留下一张", action: "setPreviousEnabled:" },
     { key: "source", title: "查看原题", description: "选中题卡或进入焦点后，在对应插件面板中查看原题", action: "setSourceEnabled:" },
+    { key: "collapseComments", title: "显示折叠评论", description: "显示折叠按钮，保留每张卡片第一条评论展开", action: "setCollapseCommentsEnabled:" },
+    { key: "expandComments", title: "显示展开评论", description: "显示展开按钮，展开所选卡片的全部评论", action: "setExpandCommentsEnabled:" },
   ];
 
   function viewFor(addon) {
@@ -26,6 +33,24 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     result.textColor = bold ? UIColor.darkGrayColor() : UIColor.grayColor();
     result.numberOfLines = bold ? 1 : 2;
     return result;
+  }
+
+  function footerText(addon) {
+    let metadata;
+    try {
+      const path = String(addon && addon.__focusNextMainPath || "").replace(/\/+$/, "");
+      if (path && typeof NSData !== "undefined" && typeof NSData.dataWithContentsOfFile === "function" &&
+        typeof NSJSONSerialization !== "undefined" && typeof NSJSONSerialization.JSONObjectWithDataOptions === "function") {
+        const data = NSData.dataWithContentsOfFile(`${path}/mnaddon.json`);
+        if (data) metadata = NSJSONSerialization.JSONObjectWithDataOptions(data, 0);
+      }
+    } catch (error) { console.log(`[Focus Switch] 读取插件版本失败：${error && error.message || error}`); }
+    function field(key, fallback) {
+      let value = metadata && metadata[key];
+      if (value === undefined && metadata && typeof metadata.objectForKey === "function") value = metadata.objectForKey(key);
+      return value === undefined || value === null || !String(value).trim() ? fallback : String(value).trim();
+    }
+    return `${field("title", "Focus Switch")} · ${field("author", "乔木Joe")} · ${field("version", "未知版本")}`;
   }
 
   function readPosition() {
@@ -64,7 +89,7 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
   }
 
   function create(addon) {
-    const panel = new UIView({ x: 0, y: 0, width: PANEL_WIDTH, height: HEADER_HEIGHT + options.length * ROW_HEIGHT });
+    const panel = new UIView({ x: 0, y: 0, width: PANEL_WIDTH, height: HEADER_HEIGHT + Math.min(options.length, MAX_VISIBLE_ROWS) * ROW_HEIGHT });
     panel.backgroundColor = UIColor.whiteColor();
     panel.layer.cornerRadius = 12;
     panel.layer.masksToBounds = true;
@@ -85,6 +110,11 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     scroll.showsHorizontalScrollIndicator = false;
     scroll.alwaysBounceVertical = false;
     panel.addSubview(scroll);
+    const footer = label(footerText(addon), 10, false);
+    footer.numberOfLines = 1;
+    footer.textAlignment = 1;
+    footer.textColor = UIColor.colorWithRedGreenBlueAlpha(115 / 255, 124 / 255, 137 / 255, 1);
+    scroll.addSubview(footer);
     const rows = options.map(function (option) {
       const title = label(option.title, 15, true);
       const description = label(option.description, 12, false);
@@ -95,7 +125,7 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
       [title, description, control, divider].forEach(function (view) { scroll.addSubview(view); });
       return { key: option.key, title, description, control, divider };
     });
-    return { panel, header, title, close, scroll, rows, position: readPosition(), dragging: false };
+    return { panel, header, title, close, scroll, footer, rows, position: readPosition(), dragging: false };
   }
 
   function layout(addon) {
@@ -104,7 +134,8 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     const bounds = menu.panel.superview.bounds;
     const width = Math.min(PANEL_WIDTH, Math.max(0, Number(bounds.width) - 24));
     const top = Math.min(100, Math.max(12, Number(bounds.height) - 180));
-    const height = Math.min(HEADER_HEIGHT + options.length * ROW_HEIGHT, Math.max(0, Number(bounds.height) - top - 12));
+    // 保持原有窄面板高度，新增选项通过滚动访问，避免失去拖动空间。
+    const height = Math.min(HEADER_HEIGHT + Math.min(options.length, MAX_VISIBLE_ROWS) * ROW_HEIGHT, Math.max(0, Number(bounds.height) - top - 12));
     const rangeX = Math.max(0, Number(bounds.width) - width - EDGE_MARGIN * 2);
     const rangeY = Math.max(0, Number(bounds.height) - height - EDGE_MARGIN * 2);
     const position = menu.position;
@@ -114,8 +145,10 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     menu.header.frame = { x: 0, y: 0, width: Math.max(0, width - 72), height: HEADER_HEIGHT };
     menu.title.frame = { x: 16, y: 12, width: Math.max(0, width - 88), height: 32 };
     menu.close.frame = { x: width - 64, y: 6, width: 56, height: 44 };
+    const footerY = options.length * ROW_HEIGHT + FOOTER_TOP_MARGIN;
+    menu.footer.frame = { x: 12, y: footerY, width: Math.max(0, width - 24), height: FOOTER_HEIGHT };
     menu.scroll.frame = { x: 0, y: HEADER_HEIGHT, width, height: Math.max(0, height - HEADER_HEIGHT) };
-    menu.scroll.contentSize = { width, height: options.length * ROW_HEIGHT };
+    menu.scroll.contentSize = { width, height: footerY + FOOTER_HEIGHT + FOOTER_BOTTOM_MARGIN };
     menu.rows.forEach(function (row, index) {
       const y = index * ROW_HEIGHT;
       row.title.frame = { x: 16, y: y + 12, width: Math.max(0, width - 100), height: 24 };
@@ -129,7 +162,8 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     const menu = addon && addon.__focusNextSettings;
     if (!menu) return;
     const core = __FOCUS_NEXT_CORE_GLOBAL__;
-    const states = { enabled: core.enabled(), crossLevel: core.crossLevelEnabled(), ordinal: core.ordinalEnabled(), previous: core.previousEnabled(), source: core.sourceEnabled() };
+    const states = { enabled: core.enabled(), crossLevel: core.crossLevelEnabled(), ordinal: core.ordinalEnabled(), previous: core.previousEnabled(), source: core.sourceEnabled(),
+      collapseComments: core.collapseCommentsEnabled(), expandComments: core.expandCommentsEnabled() };
     menu.rows.forEach(function (row) { row.control.on = states[row.key]; });
   }
 

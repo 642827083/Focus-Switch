@@ -4,6 +4,8 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   const ORDINAL_ENABLED_KEY = "cn.marginnote.focus-next.ordinal-enabled";
   const CROSS_LEVEL_ENABLED_KEY = "cn.marginnote.focus-next.cross-level-enabled";
   const SOURCE_ENABLED_KEY = "cn.marginnote.focus-next.source-enabled";
+  const COLLAPSE_COMMENTS_ENABLED_KEY = "cn.marginnote.focus-next.collapse-comments-enabled";
+  const EXPAND_COMMENTS_ENABLED_KEY = "cn.marginnote.focus-next.expand-comments-enabled";
 
   function member(object, key) {
     if (!object) return undefined;
@@ -294,8 +296,13 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   function setCrossLevelEnabled(value) { return writeBoolean(CROSS_LEVEL_ENABLED_KEY, value); }
   function sourceEnabled() { return readBoolean(SOURCE_ENABLED_KEY, false); }
   function setSourceEnabled(value) { return writeBoolean(SOURCE_ENABLED_KEY, value); }
+  function collapseCommentsEnabled() { return readBoolean(COLLAPSE_COMMENTS_ENABLED_KEY, true); }
+  function setCollapseCommentsEnabled(value) { return writeBoolean(COLLAPSE_COMMENTS_ENABLED_KEY, value); }
+  function expandCommentsEnabled() { return readBoolean(EXPAND_COMMENTS_ENABLED_KEY, true); }
+  function setExpandCommentsEnabled(value) { return writeBoolean(EXPAND_COMMENTS_ENABLED_KEY, value); }
 
   return { currentFocus, rememberFocus, rememberedFocus, navigationFocus, noteId, focusNext, focusPrevious, siblingProgress, showMessage,
     enabled, setEnabled, previousEnabled, setPreviousEnabled, ordinalEnabled, setOrdinalEnabled,
-    crossLevelEnabled, setCrossLevelEnabled, sourceEnabled, setSourceEnabled };
+    crossLevelEnabled, setCrossLevelEnabled, sourceEnabled, setSourceEnabled,
+    collapseCommentsEnabled, setCollapseCommentsEnabled, expandCommentsEnabled, setExpandCommentsEnabled };
 })();

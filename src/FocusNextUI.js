@@ -6,6 +6,8 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
   const NEXT_POSITION_KEY = "cn.marginnote.focus-next.next-button-position";
   const PREVIOUS_POSITION_KEY = "cn.marginnote.focus-next.previous-button-position";
   const SOURCE_POSITION_KEY = "cn.marginnote.focus-next.source-button-position";
+  const COLLAPSE_POSITION_KEY = "cn.marginnote.focus-next.collapse-comments-button-position";
+  const EXPAND_POSITION_KEY = "cn.marginnote.focus-next.expand-comments-button-position";
 
   function finiteNumber(value) {
     const number = Number(value);
@@ -64,7 +66,9 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
     const savedViewHeight = finiteNumber(saved && saved.viewHeight);
     const legacyWidth = Math.max(1, (savedViewWidth || view.bounds.width) - BUTTON_WIDTH);
     const legacyHeight = Math.max(1, (savedViewHeight || view.bounds.height) - BUTTON_HEIGHT);
-    const defaultY = Math.min(availableHeight, availableHeight / 2 + (verticalOffset || 0));
+    const commentsVisible = addon && [addon.__focusCollapseCommentsButton, addon.__focusExpandCommentsButton].some(function (item) { return item && !item.hidden; });
+    const defaultTop = rightSide && commentsVisible ? Math.max(0, Math.min(availableHeight / 2, availableHeight - (BUTTON_HEIGHT + 12) * 3)) : availableHeight / 2;
+    const defaultY = Math.min(availableHeight, defaultTop + (verticalOffset || 0));
     const defaultX = rightSide ? Math.max(0, availableWidth - RIGHT_MARGIN) : RIGHT_MARGIN;
     const x = savedXRatio !== undefined ? savedXRatio * availableWidth : legacyX !== undefined ? (legacyX / legacyWidth) * availableWidth : defaultX;
     const y = savedYRatio !== undefined ? savedYRatio * availableHeight : legacyY !== undefined ? (legacyY / legacyHeight) * availableHeight : defaultY;
@@ -86,7 +90,9 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
     const previousPlaced = placeButton(addon, previous, PREVIOUS_POSITION_KEY, false);
     const nextPlaced = placeButton(addon, next, NEXT_POSITION_KEY, true);
     const sourcePlaced = placeButton(addon, source, SOURCE_POSITION_KEY, true, BUTTON_HEIGHT + 12);
-    return previousPlaced || nextPlaced || sourcePlaced;
+    const collapsePlaced = placeButton(addon, addon && addon.__focusCollapseCommentsButton, COLLAPSE_POSITION_KEY, true, (BUTTON_HEIGHT + 12) * 2);
+    const expandPlaced = placeButton(addon, addon && addon.__focusExpandCommentsButton, EXPAND_POSITION_KEY, true, (BUTTON_HEIGHT + 12) * 3);
+    return previousPlaced || nextPlaced || sourcePlaced || collapsePlaced || expandPlaced;
   }
 
   function savePosition(addon, button, positionKey) {
@@ -125,6 +131,7 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
     const state = Number(recognizer.state);
     if (state === 1) {
       __FOCUS_NEXT_SOURCE_GLOBAL__.clear(addon);
+      __FOCUS_NEXT_COMMENTS_GLOBAL__.clearPress(addon);
       addon.__focusNextDragging = true;
       addon.__focusNextPlaceToken = Number(addon.__focusNextPlaceToken || 0) + 1;
       return;
@@ -176,7 +183,7 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
     const previous = addon && addon.__focusPreviousButton;
     const source = addon && addon.__focusSourceButton;
     if (!addon || addon.__focusNextRememberToken !== token ||
-      ![next, previous, source].some(function (button) { return button && !button.hidden; })) return;
+      ![next, previous, source, addon.__focusCollapseCommentsButton, addon.__focusExpandCommentsButton].some(function (button) { return button && !button.hidden; })) return;
     if (addon.focusNextEnabled !== false) {
       const note = __FOCUS_NEXT_CORE_GLOBAL__.rememberFocus(addon);
       refreshProgress(addon, note);
@@ -212,6 +219,8 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
       { property: "__focusPreviousButton", title: "上一张", action: "focusPrevious:", panAction: "handleFocusPreviousButtonPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.previousEnabled() },
       { property: "__focusNextButton", title: "下一张", action: "focusNext:", panAction: "handleFocusNextButtonPan:", visible: addon.focusNextEnabled !== false },
       { property: "__focusSourceButton", title: "查看原题", action: "openOriginal:", pressAction: "pressOriginal:", panAction: "handleFocusSourceButtonPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.sourceEnabled() },
+      { property: "__focusCollapseCommentsButton", title: "折叠评论", action: "collapseComments:", pressAction: "pressComments:", panAction: "handleFocusCollapseCommentsPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.collapseCommentsEnabled() },
+      { property: "__focusExpandCommentsButton", title: "展开评论", action: "expandComments:", pressAction: "pressComments:", panAction: "handleFocusExpandCommentsPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.expandCommentsEnabled() },
     ];
     for (const definition of buttonDefinitions) {
       let button = addon[definition.property];
@@ -254,8 +263,10 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
       addon.__focusNextRememberToken = Number(addon.__focusNextRememberToken || 0) + 1;
       addon.__focusNextPlaceToken = Number(addon.__focusNextPlaceToken || 0) + 1;
     }
-    const buttons = [addon && addon.__focusPreviousButton, addon && addon.__focusNextButton, addon && addon.__focusSourceButton];
+    const buttons = [addon && addon.__focusPreviousButton, addon && addon.__focusNextButton, addon && addon.__focusSourceButton,
+      addon && addon.__focusCollapseCommentsButton, addon && addon.__focusExpandCommentsButton];
     __FOCUS_NEXT_SOURCE_GLOBAL__.clear(addon);
+    __FOCUS_NEXT_COMMENTS_GLOBAL__.cancel(addon);
     for (const button of buttons) {
       if (!button) continue;
       button.hidden = true;
@@ -269,6 +280,8 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
       addon.__focusPreviousButton = null;
       addon.__focusNextButton = null;
       addon.__focusSourceButton = null;
+      addon.__focusCollapseCommentsButton = null;
+      addon.__focusExpandCommentsButton = null;
     }
   }
 
@@ -282,6 +295,13 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
   function handleSourcePan(addon, recognizer) {
     handlePan(addon, recognizer, addon && addon.__focusSourceButton, SOURCE_POSITION_KEY);
   }
+  function handleCollapseCommentsPan(addon, recognizer) {
+    handlePan(addon, recognizer, addon && addon.__focusCollapseCommentsButton, COLLAPSE_POSITION_KEY);
+  }
+  function handleExpandCommentsPan(addon, recognizer) {
+    handlePan(addon, recognizer, addon && addon.__focusExpandCommentsButton, EXPAND_POSITION_KEY);
+  }
 
-  return { show, hide, remove, place, refreshProgress, handleNextPan, handlePreviousPan, handleSourcePan };
+  return { show, hide, remove, place, refreshProgress, handleNextPan, handlePreviousPan, handleSourcePan,
+    handleCollapseCommentsPan, handleExpandCommentsPan };
 })();

@@ -22,6 +22,13 @@ var __FOCUS_NEXT_COMMANDS_GLOBAL__ = (function () {
     else if (key === "ordinal") core.setOrdinalEnabled(value);
     else if (key === "previous") core.setPreviousEnabled(value);
     else if (key === "source") { core.setSourceEnabled(value); __FOCUS_NEXT_SOURCE_GLOBAL__.clear(addon); }
+    else if (key === "collapseComments" || key === "expandComments") {
+      if (key === "collapseComments") core.setCollapseCommentsEnabled(value);
+      else core.setExpandCommentsEnabled(value);
+      __FOCUS_NEXT_COMMENTS_GLOBAL__.clearPress(addon);
+      const request = addon.__focusNextCommentsRequest;
+      if (!value && request && request.collapsed === (key === "collapseComments")) __FOCUS_NEXT_COMMENTS_GLOBAL__.cancel(addon);
+    }
     else throw new Error("未知的焦点切换设置");
     __FOCUS_NEXT_UI_GLOBAL__.show(addon);
     __FOCUS_NEXT_SETTINGS_GLOBAL__.refresh(addon);
