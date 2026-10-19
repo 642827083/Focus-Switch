@@ -90,6 +90,17 @@ var __FOCUS_NEXT_COMMENTS_GLOBAL__ = (function () {
 
   function read(note, id) { return receipt(note.commentState(), id); }
 
+  function hasMainExcerpt(note) {
+    const text = value(note, "excerptText");
+    if (typeof text === "string" && text.trim()) return true;
+    const picture = value(note, "excerptPic");
+    if (!picture || typeof picture !== "object") return false;
+    // 图片摘录可能是原生字典或普通对象，空字典不算正文内容。
+    const count = value(picture, "count");
+    if (Number.isSafeInteger(count) && count >= 0) return count > 0;
+    return Object.keys(picture).length > 0;
+  }
+
   function write(work, targets, collapsed) {
     // 原生入口自行完成保存、撤销与刷新，不额外保存数据库或包装撤销组。
     let result;
@@ -114,7 +125,7 @@ var __FOCUS_NEXT_COMMENTS_GLOBAL__ = (function () {
     cancel(addon);
     const verb = request.collapsed ? "折叠" : "展开";
     const message = error ? `已处理 ${request.completed}/${request.ids.length} 张卡片；${String(error.message || error)}`
-      : `已${verb} ${request.completed} 张卡片的评论${request.collapsed ? "，保留第一条展开" : ""}`;
+      : `已${verb} ${request.completed} 张卡片的评论${request.collapsed ? "，保留正文第一项" : ""}`;
     __FOCUS_NEXT_CORE_GLOBAL__.showMessage(addon, message);
   }
 
@@ -126,16 +137,21 @@ var __FOCUS_NEXT_COMMENTS_GLOBAL__ = (function () {
     try {
       if (!request.work) {
         const id = request.ids[request.completed], note = databaseNote(id), state = read(note, id);
-        request.work = { id, note, state, remaining: state.comments.filter(function (comment) {
-          return comment.collapsed !== (request.collapsed && comment.index > 1);
+        // 主摘录排在评论前且不占评论索引，有主摘录时不再额外保留第一条评论。
+        const keepComments = hasMainExcerpt(note) ? 0 : 1;
+        request.work = { id, note, state, keepComments, remaining: state.comments.filter(function (comment) {
+          return comment.collapsed !== (request.collapsed && comment.index > keepComments);
         }).map(function (comment) { return comment.index; }) };
       }
       const work = request.work;
       if (work.remaining.length) {
-        const target = request.collapsed && work.remaining[0] > 1;
-        const indices = work.remaining.filter(function (index) { return (request.collapsed && index > 1) === target; }).slice(0, 200);
+        const target = request.collapsed && work.remaining[0] > work.keepComments;
+        const indices = work.remaining.filter(function (index) { return (request.collapsed && index > work.keepComments) === target; }).slice(0, 200);
         const latest = read(work.note, work.id);
         if (latest.revision !== work.state.revision) throw new Error("COMMENT_CHANGED：评论已变化，请重新点击后重试");
+        if (request.collapsed && (hasMainExcerpt(work.note) ? 0 : 1) !== work.keepComments) {
+          throw new Error("COMMENT_CHANGED：主摘录已变化，请重新点击后重试");
+        }
         if (!active(addon, request.id)) { if (addon.__focusNextCommentsRequest === request) cancel(addon); return; }
         const result = write(work, indices, target);
         const saved = read(work.note, work.id);

@@ -11,11 +11,13 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
   const EDGE_MARGIN = 12;
   const options = [
     { key: "enabled", title: "启用焦点切换", description: "控制全部浮动按钮，关闭后全部隐藏", action: "setFocusEnabled:" },
+    { key: "iconDisplay", title: "图标展示", description: "用图标替换五个按钮的文字，保持方形按钮样式", action: "setIconDisplay:" },
+    { key: "groupedDisplay", title: "集中显示", description: "将已启用的按钮排在一起，支持整组拖动", action: "setGroupedDisplay:" },
+    { key: "groupDirection", title: "排列方向", description: "集中显示时生效", action: "setGroupDirection:" },
     { key: "crossLevel", title: "跨层级切换", description: "按脑图层级连续切换全部卡片", action: "setCrossLevelEnabled:" },
-    { key: "ordinal", title: "显示卡片序号", description: "在上一张和下一张按钮中显示当前序号与同级卡片总数", action: "setOrdinalEnabled:" },
     { key: "previous", title: "显示上一张", description: "关闭后隐藏上一张按钮，保留下一张", action: "setPreviousEnabled:" },
     { key: "source", title: "查看原题", description: "选中题卡或进入焦点后，在对应插件面板中查看原题", action: "setSourceEnabled:" },
-    { key: "collapseComments", title: "显示折叠评论", description: "显示折叠按钮，保留每张卡片第一条评论展开", action: "setCollapseCommentsEnabled:" },
+    { key: "collapseComments", title: "显示折叠评论", description: "保留正文第一项，有主摘录时折叠全部评论", action: "setCollapseCommentsEnabled:" },
     { key: "expandComments", title: "显示展开评论", description: "显示展开按钮，展开所选卡片的全部评论", action: "setExpandCommentsEnabled:" },
   ];
 
@@ -118,7 +120,14 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     const rows = options.map(function (option) {
       const title = label(option.title, 15, true);
       const description = label(option.description, 12, false);
-      const control = new UISwitch({ x: 0, y: 0, width: 51, height: 31 });
+      const direction = option.key === "groupDirection";
+      const control = direction ? new UISegmentedControl({ x: 0, y: 0, width: 112, height: 31 })
+        : new UISwitch({ x: 0, y: 0, width: 51, height: 31 });
+      if (direction) {
+        control.insertSegmentWithTitleAtIndexAnimated("竖向", 0, false);
+        control.insertSegmentWithTitleAtIndexAnimated("横向", 1, false);
+        control.momentary = false;
+      }
       control.addTargetActionForControlEvents(addon, option.action, 1 << 12);
       const divider = new UIView({ x: 0, y: 0, width: 0, height: 0.5 });
       divider.backgroundColor = UIColor.lightGrayColor().colorWithAlphaComponent(0.35);
@@ -151,9 +160,10 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     menu.scroll.contentSize = { width, height: footerY + FOOTER_HEIGHT + FOOTER_BOTTOM_MARGIN };
     menu.rows.forEach(function (row, index) {
       const y = index * ROW_HEIGHT;
-      row.title.frame = { x: 16, y: y + 12, width: Math.max(0, width - 100), height: 24 };
-      row.description.frame = { x: 16, y: y + 38, width: Math.max(0, width - 100), height: 38 };
-      row.control.frame = { x: width - 67, y: y + 26, width: 51, height: 31 };
+      const controlWidth = row.key === "groupDirection" ? 112 : 51;
+      row.title.frame = { x: 16, y: y + 12, width: Math.max(0, width - controlWidth - 49), height: 24 };
+      row.description.frame = { x: 16, y: y + 38, width: Math.max(0, width - controlWidth - 49), height: 38 };
+      row.control.frame = { x: width - controlWidth - 16, y: y + 26, width: controlWidth, height: 31 };
       row.divider.frame = { x: 16, y, width: Math.max(0, width - 32), height: 0.5 };
     });
   }
@@ -162,9 +172,12 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     const menu = addon && addon.__focusNextSettings;
     if (!menu) return;
     const core = __FOCUS_NEXT_CORE_GLOBAL__;
-    const states = { enabled: core.enabled(), crossLevel: core.crossLevelEnabled(), ordinal: core.ordinalEnabled(), previous: core.previousEnabled(), source: core.sourceEnabled(),
-      collapseComments: core.collapseCommentsEnabled(), expandComments: core.expandCommentsEnabled() };
-    menu.rows.forEach(function (row) { row.control.on = states[row.key]; });
+    const states = { enabled: core.enabled(), crossLevel: core.crossLevelEnabled(), previous: core.previousEnabled(), source: core.sourceEnabled(),
+      collapseComments: core.collapseCommentsEnabled(), expandComments: core.expandCommentsEnabled(), iconDisplay: core.iconDisplay(), groupedDisplay: core.groupedDisplay() };
+    menu.rows.forEach(function (row) {
+      if (row.key === "groupDirection") row.control.selectedSegmentIndex = core.horizontalLayout() ? 1 : 0;
+      else row.control.on = states[row.key];
+    });
   }
 
   function hide(addon) {

@@ -1,7 +1,7 @@
 var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
   const BUTTON_WIDTH = 76;
-  const MAX_BUTTON_WIDTH = 260;
   const BUTTON_HEIGHT = 36;
+  const ICON_BUTTON_SIZE = 36;
   const RIGHT_MARGIN = 10;
   const NEXT_POSITION_KEY = "cn.marginnote.focus-next.next-button-position";
   const PREVIOUS_POSITION_KEY = "cn.marginnote.focus-next.previous-button-position";
@@ -47,17 +47,20 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
   }
 
   function buttonWidth(button, view) {
-    return Math.min(Math.max(BUTTON_WIDTH, Number(button && button.__focusNextContentWidth) || BUTTON_WIDTH),
-      Math.max(0, Number(view && view.bounds && view.bounds.width) || MAX_BUTTON_WIDTH));
+    const minimum = button && button.__focusNextIconMode ? ICON_BUTTON_SIZE : BUTTON_WIDTH;
+    return Math.min(minimum, Math.max(0, Number(view && view.bounds && view.bounds.width) || minimum));
   }
 
-  function placeButton(addon, button, positionKey, rightSide, verticalOffset) {
+  function buttonHeight(button) { return button && button.__focusNextIconMode ? ICON_BUTTON_SIZE : BUTTON_HEIGHT; }
+
+  function placeButton(addon, button, positionKey, rightSide, verticalOffset, topOverride) {
     const view = viewFor(addon);
     if (!button || !view || !view.bounds) return false;
     const saved = readSavedPosition(positionKey);
     const width = buttonWidth(button, view);
     const availableWidth = Math.max(0, view.bounds.width - width);
-    const availableHeight = Math.max(0, view.bounds.height - BUTTON_HEIGHT);
+    const height = buttonHeight(button);
+    const availableHeight = Math.max(0, view.bounds.height - height);
     const savedXRatio = finiteNumber(saved && saved.xRatio);
     const savedYRatio = finiteNumber(saved && saved.yRatio);
     const legacyX = finiteNumber(saved && saved.x);
@@ -67,7 +70,8 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
     const legacyWidth = Math.max(1, (savedViewWidth || view.bounds.width) - BUTTON_WIDTH);
     const legacyHeight = Math.max(1, (savedViewHeight || view.bounds.height) - BUTTON_HEIGHT);
     const commentsVisible = addon && [addon.__focusCollapseCommentsButton, addon.__focusExpandCommentsButton].some(function (item) { return item && !item.hidden; });
-    const defaultTop = rightSide && commentsVisible ? Math.max(0, Math.min(availableHeight / 2, availableHeight - (BUTTON_HEIGHT + 12) * 3)) : availableHeight / 2;
+    const defaultTop = topOverride !== undefined ? topOverride : rightSide && commentsVisible
+      ? Math.max(0, Math.min(availableHeight / 2, availableHeight - (BUTTON_HEIGHT + 12) * 3)) : availableHeight / 2;
     const defaultY = Math.min(availableHeight, defaultTop + (verticalOffset || 0));
     const defaultX = rightSide ? Math.max(0, availableWidth - RIGHT_MARGIN) : RIGHT_MARGIN;
     const x = savedXRatio !== undefined ? savedXRatio * availableWidth : legacyX !== undefined ? (legacyX / legacyWidth) * availableWidth : defaultX;
@@ -76,7 +80,7 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
       x: Math.max(0, Math.min(availableWidth, x)),
       y: Math.max(0, Math.min(availableHeight, y)),
       width,
-      height: BUTTON_HEIGHT,
+      height,
     };
     return true;
   }
@@ -87,7 +91,31 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
     const source = addon && addon.__focusSourceButton;
     const view = viewFor(addon);
     if (!view || !view.bounds) return false;
+    if (__FOCUS_NEXT_CORE_GLOBAL__.groupedDisplay()) {
+      const buttons = [previous, next, source, addon.__focusCollapseCommentsButton, addon.__focusExpandCommentsButton]
+        .filter(function (button) { return button && !button.hidden; });
+      return __FOCUS_NEXT_GROUP_GLOBAL__.place(addon, view, buttons.map(function (button) {
+        return { button, width: buttonWidth(button, view), height: buttonHeight(button) };
+      }));
+    }
+    __FOCUS_NEXT_GROUP_GLOBAL__.detach(addon, view);
     const previousPlaced = placeButton(addon, previous, PREVIOUS_POSITION_KEY, false);
+    if (__FOCUS_NEXT_CORE_GLOBAL__.iconDisplay()) {
+      const rightButtons = [
+        [next, NEXT_POSITION_KEY], [source, SOURCE_POSITION_KEY],
+        [addon.__focusCollapseCommentsButton, COLLAPSE_POSITION_KEY], [addon.__focusExpandCommentsButton, EXPAND_POSITION_KEY],
+      ].filter(function (entry) { return entry[0] && !entry[0].hidden; });
+      const totalHeight = rightButtons.reduce(function (sum, entry) { return sum + buttonHeight(entry[0]); }, 0);
+      const gap = rightButtons.length > 1 ? Math.max(0, Math.min(12, (view.bounds.height - totalHeight) / (rightButtons.length - 1))) : 0;
+      const stackHeight = totalHeight + gap * Math.max(0, rightButtons.length - 1);
+      const top = Math.max(0, Math.min((view.bounds.height - buttonHeight(next)) / 2, view.bounds.height - stackHeight));
+      let offset = 0;
+      rightButtons.forEach(function (entry) {
+        placeButton(addon, entry[0], entry[1], true, offset, top);
+        offset += buttonHeight(entry[0]) + gap;
+      });
+      return previousPlaced || rightButtons.length > 0;
+    }
     const nextPlaced = placeButton(addon, next, NEXT_POSITION_KEY, true);
     const sourcePlaced = placeButton(addon, source, SOURCE_POSITION_KEY, true, BUTTON_HEIGHT + 12);
     const collapsePlaced = placeButton(addon, addon && addon.__focusCollapseCommentsButton, COLLAPSE_POSITION_KEY, true, (BUTTON_HEIGHT + 12) * 2);
@@ -100,7 +128,7 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
     const view = viewFor(addon);
     if (!view || !view.bounds) return;
     const availableWidth = Math.max(1, view.bounds.width - buttonWidth(button, view));
-    const availableHeight = Math.max(1, view.bounds.height - BUTTON_HEIGHT);
+    const availableHeight = Math.max(1, view.bounds.height - buttonHeight(button));
     const position = {
       xRatio: Math.max(0, Math.min(1, (Number(button.frame.x) || 0) / availableWidth)),
       yRatio: Math.max(0, Math.min(1, (Number(button.frame.y) || 0) / availableHeight)),
@@ -128,54 +156,42 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
   function handlePan(addon, recognizer, button, positionKey) {
     const view = viewFor(addon);
     if (!button || !view || !view.bounds) return;
+    if (__FOCUS_NEXT_CORE_GLOBAL__.groupedDisplay()) { __FOCUS_NEXT_GROUP_GLOBAL__.handlePan(addon, recognizer); return; }
     const state = Number(recognizer.state);
     if (state === 1) {
       __FOCUS_NEXT_SOURCE_GLOBAL__.clear(addon);
       __FOCUS_NEXT_COMMENTS_GLOBAL__.clearPress(addon);
       addon.__focusNextDragging = true;
+      addon.__focusNextIndependentDrag = { button, positionKey };
       addon.__focusNextPlaceToken = Number(addon.__focusNextPlaceToken || 0) + 1;
       return;
     }
-    if (state === 2) {
+    if (state === 2 && addon.__focusNextDragging && addon.__focusNextIndependentDrag && addon.__focusNextIndependentDrag.button === button) {
       const translation = recognizer.translationInView(view);
       const frame = button.frame;
       const width = buttonWidth(button, view);
+      const height = buttonHeight(button);
       button.frame = {
         x: Math.max(0, Math.min(view.bounds.width - width, frame.x + Number(translation.x || 0))),
-        y: Math.max(0, Math.min(view.bounds.height - BUTTON_HEIGHT, frame.y + Number(translation.y || 0))),
+        y: Math.max(0, Math.min(view.bounds.height - height, frame.y + Number(translation.y || 0))),
         width,
-        height: BUTTON_HEIGHT,
+        height,
       };
       recognizer.setTranslationInView({ x: 0, y: 0 }, view);
       return;
     }
-    if (state === 3 || state === 4) {
-      if (addon.__focusNextDragging) {
-        savePosition(addon, button, positionKey);
-        addon.__focusNextSuppressTap = true;
-      }
-      addon.__focusNextDragging = false;
-    }
+    if ((state === 3 || state === 4 || state === 5) && addon.__focusNextIndependentDrag && addon.__focusNextIndependentDrag.button === button) finishDrag(addon);
   }
 
-  function refreshProgress(addon, note) {
-    const buttons = [addon && addon.__focusPreviousButton, addon && addon.__focusNextButton];
-    if (!buttons.some(function (button) { return Boolean(button); })) return undefined;
-    const core = __FOCUS_NEXT_CORE_GLOBAL__;
-    const progress = core.ordinalEnabled() && core.siblingProgress(note || addon.__focusNextLastFocus);
-    let widthChanged = false;
-    buttons.forEach(function (button, index) {
-      if (!button) return;
-      const title = progress ? `${index === 0 ? "上" : "下"} ${progress.index}/${progress.total}` : (index === 0 ? "上一张" : "下一张");
-      let textWidth = 0;
-      for (let cursor = 0; cursor < title.length; cursor += 1) textWidth += title.charCodeAt(cursor) <= 127 ? 8 : 14;
-      const width = Math.max(BUTTON_WIDTH, Math.min(MAX_BUTTON_WIDTH, textWidth + (progress ? 20 : 28)));
-      if (button.__focusNextContentWidth !== width) widthChanged = true;
-      button.__focusNextContentWidth = width;
-      button.setTitleForState(title, 0);
-    });
-    if (widthChanged && !addon.__focusNextDragging) place(addon);
-    return progress;
+  function finishDrag(addon) {
+    if (!addon) return;
+    __FOCUS_NEXT_GROUP_GLOBAL__.finishDrag(addon);
+    const drag = addon.__focusNextIndependentDrag;
+    if (!drag) return;
+    savePosition(addon, drag.button, drag.positionKey);
+    addon.__focusNextIndependentDrag = null;
+    addon.__focusNextDragging = false;
+    addon.__focusNextSuppressTap = true;
   }
 
   function rememberLoop(addon, token) {
@@ -184,10 +200,7 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
     const source = addon && addon.__focusSourceButton;
     if (!addon || addon.__focusNextRememberToken !== token ||
       ![next, previous, source, addon.__focusCollapseCommentsButton, addon.__focusExpandCommentsButton].some(function (button) { return button && !button.hidden; })) return;
-    if (addon.focusNextEnabled !== false) {
-      const note = __FOCUS_NEXT_CORE_GLOBAL__.rememberFocus(addon);
-      refreshProgress(addon, note);
-    }
+    if (addon.focusNextEnabled !== false) __FOCUS_NEXT_CORE_GLOBAL__.rememberFocus(addon);
     const view = viewFor(addon);
     const bounds = view && view.bounds;
     const size = bounds && `${bounds.width},${bounds.height}`;
@@ -202,10 +215,7 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
     if (!addon) return;
     const token = Number(addon.__focusNextRememberToken || 0) + 1;
     addon.__focusNextRememberToken = token;
-    if (addon.focusNextEnabled !== false) {
-      const note = __FOCUS_NEXT_CORE_GLOBAL__.rememberFocus(addon);
-      refreshProgress(addon, note);
-    }
+    if (addon.focusNextEnabled !== false) __FOCUS_NEXT_CORE_GLOBAL__.rememberFocus(addon);
     if (typeof NSTimer === "undefined" || !NSTimer.scheduledTimerWithTimeInterval) return;
     NSTimer.scheduledTimerWithTimeInterval(0.15, false, function () { rememberLoop(addon, token); });
   }
@@ -216,11 +226,11 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
     const view = viewFor(addon);
     if (!view) return false;
     const buttonDefinitions = [
-      { property: "__focusPreviousButton", title: "上一张", action: "focusPrevious:", panAction: "handleFocusPreviousButtonPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.previousEnabled() },
-      { property: "__focusNextButton", title: "下一张", action: "focusNext:", panAction: "handleFocusNextButtonPan:", visible: addon.focusNextEnabled !== false },
-      { property: "__focusSourceButton", title: "查看原题", action: "openOriginal:", pressAction: "pressOriginal:", panAction: "handleFocusSourceButtonPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.sourceEnabled() },
-      { property: "__focusCollapseCommentsButton", title: "折叠评论", action: "collapseComments:", pressAction: "pressComments:", panAction: "handleFocusCollapseCommentsPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.collapseCommentsEnabled() },
-      { property: "__focusExpandCommentsButton", title: "展开评论", action: "expandComments:", pressAction: "pressComments:", panAction: "handleFocusExpandCommentsPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.expandCommentsEnabled() },
+      { property: "__focusPreviousButton", title: "上一张", icon: "arrow-up", action: "focusPrevious:", panAction: "handleFocusPreviousButtonPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.previousEnabled() },
+      { property: "__focusNextButton", title: "下一张", icon: "arrow-down", action: "focusNext:", panAction: "handleFocusNextButtonPan:", visible: addon.focusNextEnabled !== false },
+      { property: "__focusSourceButton", title: "查看原题", icon: "zoom-scan", action: "openOriginal:", pressAction: "pressOriginal:", panAction: "handleFocusSourceButtonPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.sourceEnabled() },
+      { property: "__focusCollapseCommentsButton", title: "折叠评论", icon: "fold-vertical", action: "collapseComments:", pressAction: "pressComments:", panAction: "handleFocusCollapseCommentsPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.collapseCommentsEnabled() },
+      { property: "__focusExpandCommentsButton", title: "展开评论", icon: "unfold-vertical", action: "expandComments:", pressAction: "pressComments:", panAction: "handleFocusExpandCommentsPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.expandCommentsEnabled() },
     ];
     for (const definition of buttonDefinitions) {
       let button = addon[definition.property];
@@ -246,6 +256,12 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
         button.addGestureRecognizer(new UIPanGestureRecognizer(addon, definition.panAction));
         addon[definition.property] = button;
       }
+      const image = __FOCUS_NEXT_CORE_GLOBAL__.iconDisplay() && typeof button.setImageForState === "function"
+        ? __FOCUS_NEXT_ICONS_GLOBAL__.image(addon, definition.icon) : null;
+      if (image || button.__focusNextIconMode) button.setImageForState(image || null, 0);
+      button.__focusNextIconMode = Boolean(image);
+      button.layer.cornerRadius = image ? 9 : 8;
+      button.setTitleForState(image ? "" : definition.title, 0);
       if (button.superview !== view) {
         if (button.superview) button.removeFromSuperview();
         view.addSubview(button);
@@ -259,6 +275,8 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
   }
 
   function hide(addon) {
+    finishDrag(addon);
+    __FOCUS_NEXT_GROUP_GLOBAL__.hide(addon);
     if (addon) {
       addon.__focusNextRememberToken = Number(addon.__focusNextRememberToken || 0) + 1;
       addon.__focusNextPlaceToken = Number(addon.__focusNextPlaceToken || 0) + 1;
@@ -276,6 +294,7 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
 
   function remove(addon) {
     hide(addon);
+    __FOCUS_NEXT_GROUP_GLOBAL__.remove(addon);
     if (addon) {
       addon.__focusPreviousButton = null;
       addon.__focusNextButton = null;
@@ -302,6 +321,6 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
     handlePan(addon, recognizer, addon && addon.__focusExpandCommentsButton, EXPAND_POSITION_KEY);
   }
 
-  return { show, hide, remove, place, refreshProgress, handleNextPan, handlePreviousPan, handleSourcePan,
+  return { show, hide, remove, place, finishDrag, handleNextPan, handlePreviousPan, handleSourcePan,
     handleCollapseCommentsPan, handleExpandCommentsPan };
 })();

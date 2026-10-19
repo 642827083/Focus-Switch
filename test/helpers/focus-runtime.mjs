@@ -16,6 +16,10 @@ export function runtime(defaults = {}, width = 1024, height = 768) {
     constructor(frame) { this.frame = frame; this.layer = {}; this.subviews = []; this.hidden = false; }
     get bounds() { return { x: 0, y: 0, width: this.frame.width, height: this.frame.height }; }
     addSubview(view) { view.removeFromSuperview(); this.subviews.push(view); view.superview = this; }
+    insertSubviewBelowSubview(view, sibling) {
+      view.removeFromSuperview();
+      this.subviews.splice(this.subviews.indexOf(sibling), 0, view); view.superview = this;
+    }
     removeFromSuperview() {
       if (this.superview) this.superview.subviews = this.superview.subviews.filter(view => view !== this);
       this.superview = undefined;
@@ -27,6 +31,11 @@ export function runtime(defaults = {}, width = 1024, height = 768) {
     constructor(frame) { super(frame); this.titleLabel = {}; }
     setTitleForState(title) { this.title = title; }
     setTitleColorForState() {}
+    setImageForState(image) { this.image = image; }
+  }
+  class SegmentedControl extends View {
+    constructor(frame) { super(frame); this.segments = []; this.selectedSegmentIndex = -1; }
+    insertSegmentWithTitleAtIndexAnimated(title, index) { this.segments.splice(index, 0, title); }
   }
   let now = 0;
   const timers = [], messages = [], calls = [], urls = [];
@@ -43,14 +52,20 @@ export function runtime(defaults = {}, width = 1024, height = 768) {
     Application: { sharedInstance() { return { focusWindow: context.self && context.self.window, studyController() { return controller; }, showHUD(message) { messages.push(message); }, openURL(url) { urls.push(url.absoluteString); } }; } },
     NSURL: { URLWithString(text) { return { absoluteString: text }; } },
     NSData: { dataWithContentsOfFile(path) {
-      if (path !== "/focus-switch-test/mnaddon.json") throw new Error("测试中的插件清单路径不正确");
-      return readFileSync(new URL("../../src/mnaddon.json", import.meta.url));
+      const relative = path.replace(/^\/focus-switch-test\//, "");
+      if (relative === path || (relative !== "mnaddon.json" && !/^button-icons\/[a-z-]+\.png$/.test(relative))) throw new Error("测试中的插件资源路径不正确");
+      const data = readFileSync(new URL(`../../src/${relative}`, import.meta.url));
+      data.resourcePath = relative;
+      return data;
+    } },
+    UIImage: { imageWithDataScale(data, scale) {
+      return { resourcePath: data.resourcePath, scale, size: { width: data.readUInt32BE(16) / scale, height: data.readUInt32BE(20) / scale } };
     } },
     NSJSONSerialization: { JSONObjectWithDataOptions(data) { return JSON.parse(String(data)); } },
     NSUserDefaults: { standardUserDefaults() { return {
       objectForKey(key) { return defaults[key]; }, setObjectForKey(value, key) { defaults[key] = value; },
     }; } },
-    UIView: View, UILabel: View, UIButton: Button, UISwitch: View, UIScrollView: View,
+    UIView: View, UILabel: View, UIButton: Button, UISwitch: View, UIScrollView: View, UISegmentedControl: SegmentedControl,
     UIFont: { systemFontOfSize(size) { return size; }, boldSystemFontOfSize(size) { return size; } },
     UIColor: { whiteColor() { return color; }, darkGrayColor() { return color; }, grayColor() { return color; }, lightGrayColor() { return color; }, colorWithRedGreenBlueAlpha() { return color; } },
     UIPanGestureRecognizer: class { constructor(target, selector) { this.target = target; this.selector = selector; } },

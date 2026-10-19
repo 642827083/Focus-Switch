@@ -49,11 +49,17 @@ function createFocusNextAddon(mainPath) {
 
     setFocusEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "enabled", Boolean(sender.on)); },
     setCrossLevelEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "crossLevel", Boolean(sender.on)); },
-    setOrdinalEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "ordinal", Boolean(sender.on)); },
     setPreviousEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "previous", Boolean(sender.on)); },
     setSourceEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "source", Boolean(sender.on)); },
     setCollapseCommentsEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "collapseComments", Boolean(sender.on)); },
     setExpandCommentsEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "expandComments", Boolean(sender.on)); },
+    setIconDisplay: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "iconDisplay", Boolean(sender.on)); },
+    setGroupedDisplay: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "groupedDisplay", Boolean(sender.on)); },
+    setGroupDirection: function (sender) {
+      const index = Number(sender.selectedSegmentIndex);
+      if (index === 0 || index === 1) __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "horizontalLayout", index === 1);
+    },
+    handleFocusGroupPan: function (recognizer) { __FOCUS_NEXT_GROUP_GLOBAL__.handlePan(self, recognizer); },
 
     pressOriginal: function () { __FOCUS_NEXT_SOURCE_GLOBAL__.press(self); },
     pressComments: function () { __FOCUS_NEXT_COMMENTS_GLOBAL__.press(self); },
@@ -74,6 +80,7 @@ function createFocusNextAddon(mainPath) {
     },
 
     sceneWillResignActive: function () {
+      __FOCUS_NEXT_UI_GLOBAL__.finishDrag(self);
       __FOCUS_NEXT_COMMENTS_GLOBAL__.cancel(self);
       __FOCUS_NEXT_SOURCE_GLOBAL__.clear(self);
       __FOCUS_NEXT_COMMANDS_GLOBAL__.cancelClick(self);
@@ -104,8 +111,7 @@ function createFocusNextAddon(mainPath) {
       }
       if (self.focusNextEnabled === false) return;
       try {
-        const result = __FOCUS_NEXT_CORE_GLOBAL__.focusNext(self);
-        __FOCUS_NEXT_UI_GLOBAL__.refreshProgress(self, result.next);
+        __FOCUS_NEXT_CORE_GLOBAL__.focusNext(self);
       }
       catch (error) {
         const message = error && error.message ? error.message : String(error);
@@ -121,8 +127,7 @@ function createFocusNextAddon(mainPath) {
       }
       if (self.focusNextEnabled === false) return;
       try {
-        const result = __FOCUS_NEXT_CORE_GLOBAL__.focusPrevious(self);
-        __FOCUS_NEXT_UI_GLOBAL__.refreshProgress(self, result.next);
+        __FOCUS_NEXT_CORE_GLOBAL__.focusPrevious(self);
       }
       catch (error) {
         const message = error && error.message ? error.message : String(error);

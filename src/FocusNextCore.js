@@ -1,11 +1,13 @@
 var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   const ENABLED_KEY = "cn.marginnote.focus-next.enabled";
   const PREVIOUS_ENABLED_KEY = "cn.marginnote.focus-next.previous-enabled";
-  const ORDINAL_ENABLED_KEY = "cn.marginnote.focus-next.ordinal-enabled";
   const CROSS_LEVEL_ENABLED_KEY = "cn.marginnote.focus-next.cross-level-enabled";
   const SOURCE_ENABLED_KEY = "cn.marginnote.focus-next.source-enabled";
   const COLLAPSE_COMMENTS_ENABLED_KEY = "cn.marginnote.focus-next.collapse-comments-enabled";
   const EXPAND_COMMENTS_ENABLED_KEY = "cn.marginnote.focus-next.expand-comments-enabled";
+  const ICON_DISPLAY_KEY = "cn.marginnote.focus-next.icon-display";
+  const GROUPED_DISPLAY_KEY = "cn.marginnote.focus-next.grouped-display";
+  const HORIZONTAL_LAYOUT_KEY = "cn.marginnote.focus-next.group-horizontal";
 
   function member(object, key) {
     if (!object) return undefined;
@@ -184,12 +186,6 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
     return -1;
   }
 
-  function siblingProgress(note) {
-    const siblings = items(member(member(note, "parentNote"), "childNotes"));
-    const index = siblingIndex(note, siblings);
-    return index < 0 ? undefined : { index: index + 1, total: siblings.length };
-  }
-
   function visit(note, visited) {
     const id = noteId(note);
     if (visited.some(function (entry) { return entry === note || (id && noteId(entry) === id); })) {
@@ -290,8 +286,6 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   function setEnabled(value) { return writeBoolean(ENABLED_KEY, value); }
   function previousEnabled() { return readBoolean(PREVIOUS_ENABLED_KEY, true); }
   function setPreviousEnabled(value) { return writeBoolean(PREVIOUS_ENABLED_KEY, value); }
-  function ordinalEnabled() { return readBoolean(ORDINAL_ENABLED_KEY, false); }
-  function setOrdinalEnabled(value) { return writeBoolean(ORDINAL_ENABLED_KEY, value); }
   function crossLevelEnabled() { return readBoolean(CROSS_LEVEL_ENABLED_KEY, false); }
   function setCrossLevelEnabled(value) { return writeBoolean(CROSS_LEVEL_ENABLED_KEY, value); }
   function sourceEnabled() { return readBoolean(SOURCE_ENABLED_KEY, false); }
@@ -300,9 +294,16 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   function setCollapseCommentsEnabled(value) { return writeBoolean(COLLAPSE_COMMENTS_ENABLED_KEY, value); }
   function expandCommentsEnabled() { return readBoolean(EXPAND_COMMENTS_ENABLED_KEY, true); }
   function setExpandCommentsEnabled(value) { return writeBoolean(EXPAND_COMMENTS_ENABLED_KEY, value); }
+  function iconDisplay() { return readBoolean(ICON_DISPLAY_KEY, false); }
+  function setIconDisplay(value) { return writeBoolean(ICON_DISPLAY_KEY, value); }
+  function groupedDisplay() { return readBoolean(GROUPED_DISPLAY_KEY, false); }
+  function setGroupedDisplay(value) { return writeBoolean(GROUPED_DISPLAY_KEY, value); }
+  function horizontalLayout() { return readBoolean(HORIZONTAL_LAYOUT_KEY, false); }
+  function setHorizontalLayout(value) { return writeBoolean(HORIZONTAL_LAYOUT_KEY, value); }
 
-  return { currentFocus, rememberFocus, rememberedFocus, navigationFocus, noteId, focusNext, focusPrevious, siblingProgress, showMessage,
-    enabled, setEnabled, previousEnabled, setPreviousEnabled, ordinalEnabled, setOrdinalEnabled,
+  return { currentFocus, rememberFocus, rememberedFocus, navigationFocus, noteId, focusNext, focusPrevious, showMessage,
+    enabled, setEnabled, previousEnabled, setPreviousEnabled,
     crossLevelEnabled, setCrossLevelEnabled, sourceEnabled, setSourceEnabled,
-    collapseCommentsEnabled, setCollapseCommentsEnabled, expandCommentsEnabled, setExpandCommentsEnabled };
+    collapseCommentsEnabled, setCollapseCommentsEnabled, expandCommentsEnabled, setExpandCommentsEnabled,
+    iconDisplay, setIconDisplay, groupedDisplay, setGroupedDisplay, horizontalLayout, setHorizontalLayout };
 })();

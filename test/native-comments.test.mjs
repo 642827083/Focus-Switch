@@ -58,6 +58,80 @@ test("无场景面板方法也能通过原生接口折叠评论，保留第一�
   assert.deepEqual(host.state.a1.map(item => item.collapsed), [false, false, false]);
 });
 
+test("文字、Markdown及图片主摘录保留，全部评论折叠且可重新展开", () => {
+  for (const excerpt of [
+    { excerptText: "主摘录" },
+    { excerptText: "**主摘录**", excerptTextMarkdown: 1 },
+    { excerptText: "", excerptPic: { hash: "excerpt-image" } },
+    { excerptPic: { count() { return 1; } } },
+  ]) {
+    const run = runtime();
+    const original = comments([false, true, false]);
+    const host = nativeHost(run, { a1: original });
+    Object.assign(host.notes.a1, excerpt);
+    run.addon.collapseComments(); host.drain();
+    assert.deepEqual(host.state.a1.map(item => item.collapsed), [true, true, true]);
+    assert.match(run.messages.at(-1), /保留正文第一项/);
+    for (const key of Object.keys(excerpt)) assert.equal(host.notes.a1[key], excerpt[key]);
+    run.addon.expandComments(); host.drain();
+    assert.deepEqual(host.state.a1.map(item => item.collapsed), [false, false, false]);
+    assert.deepEqual(host.state.a1.map(({ collapsed, ...rest }) => rest), original.map(({ collapsed, ...rest }) => rest));
+  }
+});
+
+test("标题和空摘录不计入正文，任意格式的第一条评论均保留展开", () => {
+  for (const type of ["TextNote", "PaintNote", "AudioNote", "HtmlNote", "OtherNote"]) {
+    for (const excerptPic of [undefined, null, {}, { count() { return 0; } }]) {
+      const run = runtime();
+      const initial = comments([true, false]);
+      initial[0].type = type; initial[0].text = "";
+      const host = nativeHost(run, { a1: initial });
+      Object.assign(host.notes.a1, { noteTitle: "标题", excerptText: " \n\t", excerptPic });
+      run.addon.collapseComments(); host.drain();
+      assert.deepEqual(host.state.a1.map(item => item.collapsed), [false, true]);
+    }
+  }
+});
+
+test("多选混合摘录卡和评论卡时分别保留首项，一条评论及空卡同样适用", () => {
+  const run = runtime();
+  const host = nativeHost(run, { a: comments([false, false]), b: comments([true, false]), a2: comments([false]), b1: [] });
+  host.notes.a.excerptText = "文字主摘录";
+  host.notes.a2.excerptPic = { hash: "picture" };
+  run.controller.notebookController.mindmapView.selViewLst = [run.nodes.a, run.nodes.b, run.nodes.a2, run.nodes.b1];
+  run.addon.collapseComments(); host.drain();
+  assert.deepEqual(host.state.a.map(item => item.collapsed), [true, true]);
+  assert.deepEqual(host.state.b.map(item => item.collapsed), [false, true]);
+  assert.deepEqual(host.state.a2.map(item => item.collapsed), [true]);
+  assert.deepEqual(host.state.b1, []);
+  assert.match(run.messages.at(-1), /已折叠 4 张/);
+  run.addon.expandComments(); host.drain();
+  for (const items of Object.values(host.state)) assert.ok(items.every(item => !item.collapsed));
+});
+
+test("有主摘录的大量评论从第一条开始全部分批折叠", () => {
+  const run = runtime();
+  const host = nativeHost(run, { a1: comments(Array(405).fill(false)) });
+  host.notes.a1.excerptText = "主摘录";
+  run.addon.collapseComments(); host.drain();
+  assert.deepEqual(host.writes.map(write => write.targets.length), [200, 200, 5]);
+  assert.ok(host.state.a1.every(item => item.collapsed));
+});
+
+test("批次之间新增或移除主摘录时停止，不继续使用旧的首项规则", () => {
+  for (const hadExcerpt of [false, true]) {
+    const run = runtime();
+    const host = nativeHost(run, { a1: comments(Array(405).fill(false)) });
+    host.notes.a1.excerptText = hadExcerpt ? "主摘录" : "";
+    run.addon.collapseComments(); run.advance(10);
+    assert.equal(host.writes.length, 1);
+    host.notes.a1.excerptText = hadExcerpt ? "" : "新增主摘录";
+    host.drain();
+    assert.equal(host.writes.length, 1);
+    assert.match(run.messages.at(-1), /COMMENT_CHANGED.*主摘录已变化/);
+  }
+});
+
 test("原生多选去重并逐张处理，无评论和一条评论同样可折叠展开", () => {
   const run = runtime();
   const host = nativeHost(run, { a: comments([false, false, false]), b: [], a2: comments([true]) });
@@ -71,6 +145,24 @@ test("原生多选去重并逐张处理，无评论和一条评论同样可折�
   assert.deepEqual(host.state.a.map(item => item.collapsed), [false, false, false]);
   assert.deepEqual(host.state.b, []);
   assert.match(run.messages.at(-1), /已展开 3 张/);
+});
+
+test("集中显示的文字或图标按钮在横竖排列下仍可对多张卡片折叠和展开", () => {
+  for (const icons of [false, true]) for (const horizontal of [false, true]) {
+    const run = runtime();
+    const host = nativeHost(run, { a: comments([false, false]), b: comments([true, false]) });
+    host.notes.a.excerptText = "保留的主摘录";
+    run.addon.setIconDisplay({ on: icons });
+    run.addon.setGroupDirection({ selectedSegmentIndex: horizontal ? 1 : 0 });
+    run.addon.setGroupedDisplay({ on: true });
+    run.controller.notebookController.mindmapView.selViewLst = [run.nodes.a, run.nodes.b];
+    run.addon.pressComments(); run.addon.collapseComments(); host.drain();
+    assert.deepEqual(host.state.a.map(item => item.collapsed), [true, true]);
+    assert.deepEqual(host.state.b.map(item => item.collapsed), [false, true]);
+    assert.equal(run.addon.__focusCollapseCommentsButton.superview, run.addon.__focusNextGroup.view);
+    run.addon.pressComments(); run.addon.expandComments(); host.drain();
+    for (const items of Object.values(host.state)) assert.ok(items.every(item => !item.collapsed));
+  }
 });
 
 test("图片、手写、文本及历史无稳定ID评论仅改变折叠状态，不改正文和归属", () => {

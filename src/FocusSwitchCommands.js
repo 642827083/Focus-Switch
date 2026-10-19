@@ -11,6 +11,7 @@ var __FOCUS_NEXT_COMMANDS_GLOBAL__ = (function () {
 
   function apply(addon, key, value) {
     const core = __FOCUS_NEXT_CORE_GLOBAL__;
+    __FOCUS_NEXT_UI_GLOBAL__.finishDrag(addon);
     if (key === "enabled") {
       addon.focusNextEnabled = core.setEnabled(value);
       if (!addon.focusNextEnabled) {
@@ -19,8 +20,14 @@ var __FOCUS_NEXT_COMMANDS_GLOBAL__ = (function () {
       }
     }
     else if (key === "crossLevel") core.setCrossLevelEnabled(value);
-    else if (key === "ordinal") core.setOrdinalEnabled(value);
     else if (key === "previous") core.setPreviousEnabled(value);
+    else if (key === "iconDisplay") core.setIconDisplay(value);
+    else if (key === "groupedDisplay" || key === "horizontalLayout") {
+      if (key === "groupedDisplay") core.setGroupedDisplay(value);
+      else core.setHorizontalLayout(value);
+      __FOCUS_NEXT_SOURCE_GLOBAL__.clear(addon);
+      __FOCUS_NEXT_COMMENTS_GLOBAL__.clearPress(addon);
+    }
     else if (key === "source") { core.setSourceEnabled(value); __FOCUS_NEXT_SOURCE_GLOBAL__.clear(addon); }
     else if (key === "collapseComments" || key === "expandComments") {
       if (key === "collapseComments") core.setCollapseCommentsEnabled(value);

@@ -17,7 +17,7 @@ test("更名保留插件身份、版本和旧设置，生成新的固定测试�
   assert.equal(run.addon.queryAddonCommandStatus().selector, "focusToolbarClick:");
 });
 
-test("单击只弹出窄面板，不改变导航开关；七项设置与说明准确", () => {
+test("单击只弹出窄面板，显示相关设置上移，默认值与说明准确", () => {
   const run = runtime();
   run.addon.focusToolbarClick(); run.advance(299);
   assert.equal(run.addon.__focusNextSettings, undefined);
@@ -28,9 +28,9 @@ test("单击只弹出窄面板，不改变导航开关；七项设置与说明�
   assert.ok(menu.scroll.contentSize.height > menu.scroll.frame.height);
   assert.equal(menu.panel.superview, run.controller.view);
   assert.equal(run.addon.focusNextEnabled, true);
-  assert.deepEqual(Array.from(menu.rows, row => row.title.text), ["启用焦点切换", "跨层级切换", "显示卡片序号", "显示上一张", "查看原题", "显示折叠评论", "显示展开评论"]);
-  assert.match(menu.rows[2].description.text, /当前序号与同级卡片总数/);
-  assert.deepEqual(Array.from(menu.rows, row => row.control.on), [true, false, false, true, false, true, true]);
+  assert.deepEqual(Array.from(menu.rows, row => row.title.text), ["启用焦点切换", "图标展示", "集中显示", "排列方向", "跨层级切换", "显示上一张", "查看原题", "显示折叠评论", "显示展开评论"]);
+  assert.deepEqual(Array.from(menu.rows, row => row.key === "groupDirection" ? row.control.selectedSegmentIndex : row.control.on), [true, false, false, 0, false, true, false, true, true]);
+  assert.deepEqual(menu.rows[3].control.segments, ["竖向", "横向"]);
   run.addon.closeFocusSettings();
   assert.equal(menu.panel.superview, undefined);
 });
@@ -70,21 +70,21 @@ test("双击切换开启和关闭一次，不弹菜单，取消后的旧回调�
   assert.equal(run.calls.filter(call => call === "refresh-toolbar").length, 2);
 });
 
-test("设置上一张与序号立即生效并持久化，关闭总开关移除全部导航", () => {
+test("设置上一张立即生效并持久化，关闭总开关移除全部导航", () => {
   const defaults = { "cn.marginnote.focus-next.previous-button-position": JSON.stringify({ xRatio: 0.2, yRatio: 0.3 }) };
   const run = runtime(defaults);
-  run.addon.notebookWillOpen(); run.addon.setOrdinalEnabled({ on: true });
-  assert.equal(run.addon.__focusNextButton.title, "下 1/2");
+  run.addon.notebookWillOpen();
+  assert.equal(run.addon.__focusNextButton.title, "下一张");
   assert.equal(run.addon.__focusNextButton.frame.width, 76);
   const previousPosition = defaults["cn.marginnote.focus-next.previous-button-position"];
   run.addon.setPreviousEnabled({ on: false });
   assert.equal(run.addon.__focusPreviousButton.superview, undefined);
   assert.equal(run.addon.__focusNextButton.superview, run.controller.view);
   run.addon.focusNext();
-  assert.equal(run.addon.__focusNextButton.title, "下 2/2");
+  assert.equal(run.addon.__focusNextButton.title, "下一张");
   run.addon.setPreviousEnabled({ on: true });
   assert.equal(defaults["cn.marginnote.focus-next.previous-button-position"], previousPosition);
-  assert.equal(run.addon.__focusPreviousButton.title, "上 2/2");
+  assert.equal(run.addon.__focusPreviousButton.title, "上一张");
   run.addon.setFocusEnabled({ on: false });
   const callsBefore = run.calls.length;
   run.addon.focusNext();
@@ -93,8 +93,6 @@ test("设置上一张与序号立即生效并持久化，关闭总开关移除�
   const restarted = runtime(defaults);
   assert.equal(restarted.addon.focusNextEnabled, false);
   restarted.addon.setFocusEnabled({ on: true });
-  assert.equal(restarted.addon.__focusNextButton.title, "下 1/2");
-  restarted.addon.setOrdinalEnabled({ on: false });
   assert.equal(restarted.addon.__focusNextButton.title, "下一张");
   assert.equal(restarted.addon.__focusNextButton.frame.width, 76);
 });
@@ -117,21 +115,6 @@ test("跨层级遍历前序所有节点并严格逆序返回，树首尾停止",
   run.controller.notebookController.focusNote = run.nodes.a2;
   run.addon.__focusNextLastFocus = run.nodes.a2;
   assert.throws(() => core.focusNext(run.addon), /最后一张同级卡片/);
-});
-
-test("卡片序号按同级计数，跨层级时不累计作答量", () => {
-  const run = runtime();
-  const core = run.context.__FOCUS_NEXT_CORE_GLOBAL__;
-  assert.equal(JSON.stringify(core.siblingProgress(run.nodes.a2)), '{"index":2,"total":2}');
-  assert.equal(JSON.stringify(core.siblingProgress(run.nodes.b1)), '{"index":1,"total":1}');
-  assert.equal(core.siblingProgress(run.nodes.root), undefined);
-  run.addon.setOrdinalEnabled({ on: true }); run.addon.setCrossLevelEnabled({ on: true });
-  run.controller.notebookController.focusNote = run.nodes.a1;
-  run.addon.__focusNextLastFocus = run.nodes.a1;
-  run.addon.focusPrevious();
-  assert.equal(run.addon.__focusNextButton.title, "下 1/2");
-  run.addon.focusPrevious();
-  assert.equal(run.addon.__focusNextButton.title, "下一张");
 });
 
 for (const method of ["sceneWillResignActive", "notebookWillOpen", "notebookWillClose", "sceneDidDisconnect"]) {
@@ -372,7 +355,7 @@ test("查看原题默认关闭，服从总开关并保留设置，按钮拖动�
   const frame = restarted.addon.__focusSourceButton.frame;
   assert.ok(frame.x >= 0 && frame.x + frame.width <= 300 && frame.y + frame.height <= 320);
   const menu = openMenu(restarted);
-  assert.equal(menu.rows[4].control.on, true);
+  assert.equal(menu.rows.find(row => row.key === "source").control.on, true);
   restarted.addon.notebookWillClose();
   assert.equal(restarted.addon.__focusSourceButton.superview, undefined);
 });
