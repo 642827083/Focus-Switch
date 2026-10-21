@@ -27,19 +27,32 @@ test("显示设置位于面板上方，可直接选择竖横方向，集中显�
   assert.deepEqual(Array.from(menu.rows.slice(0, 4), row => row.key), ["enabled", "iconDisplay", "groupedDisplay", "groupDirection"]);
   assert.equal(run.addon.__focusNextGroup, undefined);
   const control = menu.rows[3].control;
+  const layout = menu.rows[2].control;
+  assert.deepEqual(layout.segments, ["分散", "集中"]);
+  assert.equal(layout.selectedSegmentIndex, 0);
+  assert.equal(layout.selector, "setButtonLayout:");
   assert.deepEqual(control.segments, ["竖向", "横向"]);
   assert.equal(control.selectedSegmentIndex, 0);
   assert.equal(control.selector, "setGroupDirection:");
   direction(run, true);
   assert.equal(control.selectedSegmentIndex, 1);
   assert.equal(run.addon.__focusNextGroup, undefined);
-  run.addon.setGroupedDisplay({ on: true });
+  run.addon.setButtonLayout({ selectedSegmentIndex: 1 });
   const group = run.addon.__focusNextGroup;
-  assert.equal(menu.rows[2].control.on, true);
+  assert.equal(menu.rows[2].control.selectedSegmentIndex, 1);
   assert.equal(group.horizontal, true);
   assert.ok(run.controller.view.subviews.indexOf(group.view) < run.controller.view.subviews.indexOf(menu.panel));
   run.addon.setGroupDirection({ selectedSegmentIndex: -1 });
   assert.equal(group.horizontal, true);
+  for (const index of [-1, 2, NaN]) run.addon.setButtonLayout({ selectedSegmentIndex: index });
+  assert.equal(layout.selectedSegmentIndex, 1);
+  const restarted = runtime(run.defaults);
+  restarted.addon.focusToolbarClick(); restarted.advance(300);
+  assert.equal(restarted.addon.__focusNextSettings.rows.find(row => row.key === "groupedDisplay").control.selectedSegmentIndex, 1);
+  run.addon.setButtonLayout({ selectedSegmentIndex: 0 });
+  assert.equal(layout.selectedSegmentIndex, 0);
+  assert.equal(group.view.superview, undefined);
+  properties.forEach(property => assert.equal(run.addon[property].superview, run.controller.view));
 });
 
 test("文字和图标均可横向或竖向集中排列，每个功能仍直接显示", () => {

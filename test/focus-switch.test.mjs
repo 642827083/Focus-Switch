@@ -24,12 +24,12 @@ test("单击只弹出窄面板，显示相关设置上移，默认值与说明�
   run.advance(1);
   const menu = run.addon.__focusNextSettings;
   assert.equal(menu.panel.frame.width, 340);
-  assert.equal(menu.panel.frame.height, 496);
-  assert.ok(menu.scroll.contentSize.height > menu.scroll.frame.height);
+  assert.ok(menu.panel.frame.height <= 496);
+  assert.ok(menu.scroll.contentSize.height >= menu.scroll.frame.height);
   assert.equal(menu.panel.superview, run.controller.view);
   assert.equal(run.addon.focusNextEnabled, true);
-  assert.deepEqual(Array.from(menu.rows, row => row.title.text), ["启用焦点切换", "图标展示", "集中显示", "排列方向", "跨层级切换", "显示上一张", "查看原题", "显示折叠评论", "显示展开评论"]);
-  assert.deepEqual(Array.from(menu.rows, row => row.key === "groupDirection" ? row.control.selectedSegmentIndex : row.control.on), [true, false, false, 0, false, true, false, true, true]);
+  assert.deepEqual(Array.from(menu.rows, row => row.title.text), ["启用焦点切换", "按钮样式", "按钮布局", "排列方向", "切换范围", "下一张", "上一张", "查看原题", "折叠评论", "展开评论"]);
+  assert.deepEqual(Array.from(menu.rows, row => row.segmented ? row.control.selectedSegmentIndex : row.control.on), [true, 0, 0, 0, 0, true, true, false, true, true]);
   assert.deepEqual(menu.rows[3].control.segments, ["竖向", "横向"]);
   run.addon.closeFocusSettings();
   assert.equal(menu.panel.superview, undefined);
@@ -43,7 +43,8 @@ test("小窗口菜单收窄且可滚动，文字与开关不重叠", () => {
   assert.ok(menu.panel.frame.y + menu.panel.frame.height <= 320);
   assert.ok(menu.scroll.contentSize.height > menu.scroll.frame.height);
   for (const row of menu.rows) {
-    assert.ok(row.description.frame.x + row.description.frame.width < row.control.frame.x);
+    assert.ok(row.title.frame.x + row.title.frame.width < row.control.frame.x);
+    if (!row.description.hidden) assert.ok(row.description.frame.y >= row.control.frame.y + row.control.frame.height);
     assert.ok(row.control.frame.x + row.control.frame.width <= menu.panel.frame.width);
     assert.equal(row.description.numberOfLines, 2);
   }
@@ -129,6 +130,303 @@ for (const method of ["sceneWillResignActive", "notebookWillOpen", "notebookWill
 
 function openMenu(run) { run.addon.focusToolbarClick(); run.advance(300); return run.addon.__focusNextSettings; }
 
+test("缩小后的开关保留整行点击，折叠及关闭后不响应，原生事件仍独立生效", () => {
+  const run = runtime();
+  run.addon.notebookWillOpen();
+  const menu = openMenu(run);
+  run.addon.toggleButtonsSection();
+  const row = menu.rows.find(row => row.key === "next");
+  const initial = { ...row.control.frame };
+  assert.ok(Math.abs(initial.width - 43.35) < 0.001);
+  assert.ok(Math.abs(initial.height - 26.35) < 0.001);
+  assert.ok(row.hitButton.frame.height >= 44);
+  assert.equal(row.hitButton.selector, "toggleSettingsSwitchRow:");
+  run.addon.toggleSettingsSwitchRow(row.hitButton);
+  assert.equal(row.control.on, false);
+  assert.equal(run.addon.__focusNextButton.hidden, true);
+  run.addon.toggleSettingsSwitchRow(row.hitButton);
+  assert.equal(row.control.on, true);
+  run.addon.setNextEnabled({ on: false });
+  assert.equal(row.control.on, false);
+  assert.deepEqual({ ...row.control.frame }, initial);
+  for (let index = 0; index < 5; index++) run.addon.controllerWillLayoutSubviews();
+  assert.deepEqual({ ...row.control.frame }, initial);
+  run.addon.toggleButtonsSection();
+  assert.equal(row.hitButton.hidden, true);
+  run.addon.toggleSettingsSwitchRow(row.hitButton);
+  assert.equal(row.control.on, false);
+  run.addon.closeFocusSettings();
+  run.addon.toggleSettingsSwitchRow(menu.rows[0].hitButton);
+  assert.equal(run.addon.focusNextEnabled, true);
+});
+
+test("关闭使用16点本地图标和44点点击区域，页脚上下留白各8点", () => {
+  const run = runtime();
+  run.addon.setSourceEnabled({ on: true });
+  const menu = openMenu(run);
+  assert.equal(menu.close.title, "");
+  assert.equal(menu.close.image.resourcePath, "button-icons/panel-close.png");
+  assert.deepEqual(menu.close.image.size, { width: 16, height: 16 });
+  assert.equal(menu.close.frame.width, 44);
+  assert.equal(menu.close.frame.height, 44);
+  assert.equal(menu.close.selector, "closeFocusSettings:");
+  const last = menu.groups[2].button.frame;
+  assert.equal(menu.footer.frame.y - last.y - last.height, 8);
+  assert.equal(menu.scroll.contentSize.height - menu.footer.frame.y - menu.footer.frame.height, 8);
+  run.addon.closeFocusSettings();
+  assert.equal(menu.panel.superview, undefined);
+  assert.equal(run.addon.focusNextEnabled, true);
+  assert.equal(run.addon.__focusNextButton.hidden, false);
+});
+
+test("卡片切换范围沿用旧偏好，选择后同步摘要、说明及实际切换行为", () => {
+  for (const crossLevel of [false, true]) {
+    const defaults = { "cn.marginnote.focus-next.cross-level-enabled": crossLevel };
+    const run = runtime(defaults, 300, 500);
+    const menu = openMenu(run);
+    run.addon.toggleNavigationSection();
+    const row = menu.rows.find(row => row.key === "crossLevel");
+    assert.equal(menu.groups[1].title.text, "卡片切换");
+    assert.equal(row.title.text, "切换范围");
+    assert.equal(row.control.selector, "setNavigationScope:");
+    assert.deepEqual(row.control.segments, ["同级", "整张脑图"]);
+    assert.equal(row.control.selectedSegmentIndex, crossLevel ? 1 : 0);
+    assert.equal(row.control.frame.width, 140);
+    for (const index of [0, 1]) {
+      run.addon.setNavigationScope({ selectedSegmentIndex: index });
+      assert.equal(row.control.selectedSegmentIndex, index);
+      assert.equal(defaults["cn.marginnote.focus-next.cross-level-enabled"], index === 1);
+      assert.equal(menu.groups[1].description.text, index ? "整张脑图" : "同级卡片");
+      assert.match(row.description.text, index ? /先父卡片、再子卡片/ : /同级兄弟卡片/);
+      run.controller.notebookController.focusNote = run.nodes.a;
+      run.addon.__focusNextLastFocus = run.nodes.a;
+      run.addon.focusNext();
+      assert.equal(run.controller.notebookController.focusNote, index ? run.nodes.a1 : run.nodes.b);
+    }
+    for (const index of [-1, 2, NaN]) run.addon.setNavigationScope({ selectedSegmentIndex: index });
+    assert.equal(row.control.selectedSegmentIndex, 1);
+    const restarted = runtime(defaults);
+    const restored = openMenu(restarted);
+    assert.equal(restored.groups[1].description.text, "整张脑图");
+    assert.equal(restored.rows.find(row => row.key === "crossLevel").control.selectedSegmentIndex, 1);
+  }
+});
+
+test("各组箭头共用相同几何图形的两个方向，反复展开不改变尺寸或中心", () => {
+  const run = runtime();
+  const menu = openMenu(run);
+  for (const [index, method] of ["toggleAppearanceSection", "toggleNavigationSection", "toggleButtonsSection"].entries()) {
+    const group = menu.groups[index];
+    const frame = { ...group.arrow.frame };
+    for (let click = 0; click < 4; click++) {
+      run.addon[method]();
+      assert.equal(group.arrow.image.resourcePath, group.expanded ? "button-icons/section-chevron-down.png" : "button-icons/section-chevron-right.png");
+      assert.deepEqual(group.arrow.image.size, { width: 14, height: 14 });
+      assert.deepEqual({ ...group.arrow.frame }, frame);
+      assert.equal(group.arrow.superview, group.button);
+    }
+  }
+});
+
+test("默认展开外观，折叠其他两组，查看原题关闭且其余四个按钮开启", () => {
+  const run = runtime();
+  run.addon.notebookWillOpen();
+  const menu = openMenu(run);
+  assert.deepEqual(Array.from(menu.groups, group => group.expanded), [true, false, false]);
+  assert.equal(menu.groups[0].description.text, "文字 · 分散 · 竖向");
+  assert.equal(menu.groups[1].description.text, "同级卡片");
+  assert.equal(menu.groups[2].description.text, "已开启 4/5");
+  for (const property of ["__focusNextButton", "__focusPreviousButton", "__focusCollapseCommentsButton", "__focusExpandCommentsButton"]) assert.equal(run.addon[property].hidden, false);
+  assert.equal(run.addon.__focusSourceButton, undefined);
+  const selectors = ["toggleAppearanceSection:", "toggleNavigationSection:", "toggleButtonsSection:"];
+  menu.groups.forEach((group, index) => {
+    assert.equal(group.button.selector, selectors[index]);
+    assert.equal(group.button.target, run.addon);
+    assert.equal(group.arrow.image.resourcePath, group.expanded ? "button-icons/section-chevron-down.png" : "button-icons/section-chevron-right.png");
+    assert.deepEqual(group.arrow.image.size, { width: 14, height: 14 });
+    for (const key of group.keys) {
+      const row = menu.rows.find(row => row.key === key);
+      assert.equal(row.title.hidden, !group.expanded);
+      assert.equal(row.control.hidden, !group.expanded);
+    }
+  });
+});
+
+test("分组可同时展开，独立记忆，收起不改按钮设置且修正滚动位置", () => {
+  const defaults = { "cn.marginnote.focus-next.source-enabled": true, "cn.marginnote.focus-next.previous-enabled": false };
+  const run = runtime(defaults);
+  const menu = openMenu(run);
+  run.addon.toggleNavigationSection(); run.addon.toggleButtonsSection();
+  assert.deepEqual(Array.from(menu.groups, group => group.expanded), [true, true, true]);
+  run.addon.setButtonStyle({ selectedSegmentIndex: 1 });
+  run.addon.setButtonLayout({ selectedSegmentIndex: 1 });
+  run.addon.setGroupDirection({ selectedSegmentIndex: 1 });
+  run.addon.setCrossLevelEnabled({ on: true });
+  assert.equal(menu.groups[0].description.text, "图标 · 集中 · 横向");
+  assert.equal(menu.groups[1].description.text, "整张脑图");
+  assert.equal(menu.groups[2].description.text, "已开启 4/5");
+  run.addon.setNextEnabled({ on: false });
+  assert.equal(menu.groups[2].description.text, "已开启 3/5");
+  const settingsBefore = { ...defaults };
+  const origin = { x: menu.panel.frame.x, y: menu.panel.frame.y };
+  menu.scroll.contentOffset = { x: 0, y: 100000 };
+  run.addon.toggleAppearanceSection(); run.addon.toggleNavigationSection(); run.addon.toggleButtonsSection();
+  assert.deepEqual(Array.from(menu.groups, group => group.expanded), [false, false, false]);
+  assert.ok(menu.panel.frame.height < 496);
+  assert.equal(menu.panel.frame.x, origin.x);
+  assert.equal(menu.panel.frame.y, origin.y);
+  run.addon.controllerWillLayoutSubviews(); run.advance(200);
+  assert.equal(menu.panel.frame.y, origin.y);
+  assert.equal(menu.scroll.contentOffset.y, 0);
+  assert.equal(menu.commentsHint.hidden, true);
+  assert.equal(menu.directionHint.hidden, true);
+  for (const key of Object.keys(settingsBefore).filter(key => !key.endsWith('settings-sections') && !key.endsWith('settings-panel-position'))) assert.equal(defaults[key], settingsBefore[key]);
+  const restarted = runtime(defaults);
+  const restored = openMenu(restarted);
+  assert.deepEqual(Array.from(restored.groups, group => group.expanded), [false, false, false]);
+  assert.ok(Math.abs(restored.panel.frame.y - origin.y) < 0.001);
+  assert.equal(restored.groups[2].description.text, "已开启 3/5");
+  assert.equal(restored.rows.find(row => row.key === "source").control.on, true);
+  run.addon.closeFocusSettings();
+  const stored = defaults["cn.marginnote.focus-next.settings-sections"];
+  run.addon.toggleAppearanceSection();
+  assert.equal(defaults["cn.marginnote.focus-next.settings-sections"], stored);
+});
+
+test("损坏或部分分组配置采用各组默认值，不覆盖已有按钮偏好", () => {
+  for (const value of ['bad-json', 'null', '{"appearance":"false","navigation":true,"buttons":false}']) {
+    const run = runtime({ "cn.marginnote.focus-next.settings-sections": value, "cn.marginnote.focus-next.source-enabled": false });
+    const menu = openMenu(run);
+    assert.deepEqual(Array.from(menu.groups, group => group.expanded), [true, value.includes('"navigation":true'), false]);
+    assert.equal(menu.rows.find(row => row.key === "source").control.on, false);
+  }
+});
+
+test("下一张开关位于上一张上方，独立记忆并在重启和总开关切换后保留", () => {
+  for (const icons of [false, true]) for (const grouped of [false, true]) for (const horizontal of [false, true]) {
+    const defaults = {};
+    const run = runtime(defaults);
+    run.addon.setIconDisplay({ on: icons });
+    run.addon.setGroupDirection({ selectedSegmentIndex: horizontal ? 1 : 0 });
+    run.addon.setGroupedDisplay({ on: grouped });
+    const menu = openMenu(run);
+    run.addon.toggleButtonsSection();
+    const index = menu.rows.findIndex(row => row.key === "next");
+    const control = menu.rows[index].control;
+    assert.equal(menu.rows[index + 1].key, "previous");
+    assert.equal(control.on, true);
+    assert.equal(control.selector, "setNextEnabled:");
+    assert.ok(menu.rows[index].control.frame.y < menu.rows[index + 1].control.frame.y);
+    const next = run.addon.__focusNextButton;
+    const positionKey = "cn.marginnote.focus-next.next-button-position";
+    defaults[positionKey] = JSON.stringify({ xRatio: 0.4, yRatio: 0.3 });
+    const saved = defaults[positionKey];
+    run.addon.setNextEnabled({ on: false });
+    assert.equal(control.on, false);
+    assert.equal(defaults["cn.marginnote.focus-next.next-enabled"], false);
+    assert.equal(next.hidden, true);
+    assert.equal(next.superview, undefined);
+    assert.equal(run.addon.__focusPreviousButton.hidden, false);
+    const before = run.calls.length;
+    run.addon.focusNext();
+    assert.equal(run.calls.length, before);
+    run.addon.setFocusEnabled({ on: false });
+    run.addon.setFocusEnabled({ on: true });
+    assert.equal(next.hidden, true);
+    const restarted = runtime(defaults);
+    restarted.addon.notebookWillOpen();
+    assert.equal(restarted.addon.__focusNextButton, undefined);
+    assert.equal(openMenu(restarted).rows.find(row => row.key === "next").control.on, false);
+    run.addon.setNextEnabled({ on: true });
+    assert.equal(next.hidden, false);
+    assert.equal(next.superview, grouped ? run.addon.__focusNextGroup.view : run.controller.view);
+    assert.equal(defaults[positionKey], saved);
+    run.addon.focusNext();
+    assert.equal(run.controller.notebookController.focusNote, run.nodes.a2);
+  }
+});
+
+test("所有显示开关关闭时移除集中工具条，重新开启下一张后正常恢复", () => {
+  for (const initiallyDisabled of [false, true]) {
+    const defaults = initiallyDisabled ? {
+      "cn.marginnote.focus-next.next-enabled": false,
+      "cn.marginnote.focus-next.previous-enabled": false,
+      "cn.marginnote.focus-next.collapse-comments-enabled": false,
+      "cn.marginnote.focus-next.expand-comments-enabled": false,
+    } : {};
+    const run = runtime(defaults);
+    run.addon.setGroupedDisplay({ on: true });
+    for (const setter of ["setPreviousEnabled", "setCollapseCommentsEnabled", "setExpandCommentsEnabled", "setNextEnabled"]) run.addon[setter]({ on: false });
+    run.advance(200);
+    assert.ok(!run.addon.__focusNextGroup || !run.addon.__focusNextGroup.view.superview);
+    assert.ok(!run.controller.view.subviews.some(view => view.selector === "focusNext:"));
+    run.addon.setNextEnabled({ on: true });
+    const group = run.addon.__focusNextGroup;
+    assert.equal(group.view.superview, run.controller.view);
+    assert.equal(group.entries.length, 1);
+    assert.equal(group.entries[0].button, run.addon.__focusNextButton);
+    run.addon.focusNext();
+    assert.equal(run.controller.notebookController.focusNote, run.nodes.a2);
+  }
+});
+
+test("折叠分组在分屏及横竖屏下保持层级、开关和页脚间距", () => {
+  for (const [width, height] of [[300, 320], [375, 667], [768, 1024], [1024, 768]]) {
+    const run = runtime({}, width, height);
+    const menu = openMenu(run);
+    run.addon.toggleNavigationSection(); run.addon.toggleButtonsSection();
+    assert.deepEqual(Array.from(menu.groups, group => group.title.text), ["外观与排列", "卡片切换", "显示按钮"]);
+    assert.equal(menu.groups[2].description.text, "已开启 4/5");
+    assert.equal(menu.rows[0].control.superview, menu.panel);
+    assert.ok(menu.scroll.frame.y >= menu.rows[0].control.frame.y + 31);
+    let bottom = 0;
+    for (const group of menu.groups) {
+      assert.ok(group.button.frame.y >= bottom);
+      assert.equal(group.title.frame.x, 16);
+      assert.ok(group.arrow.frame.x > group.title.frame.x + group.title.frame.width);
+      bottom = group.button.frame.y + group.button.frame.height;
+      for (const key of group.keys) {
+        const row = menu.rows.find(row => row.key === key);
+        assert.equal(row.control.hidden, false);
+        assert.ok(row.title.frame.x > group.title.frame.x);
+        assert.ok(row.divider.frame.y >= bottom);
+        assert.ok(row.title.frame.x + row.title.frame.width < row.control.frame.x);
+        assert.equal(row.control.frame.x + row.control.frame.width, menu.panel.frame.width - 16);
+        assert.ok(Math.abs(row.control.frame.height - (row.segmented ? 31 : 26.35)) < 0.001);
+        bottom = row.divider.frame.y + (row.description.text ? 76 : 54);
+        if (!row.description.hidden) assert.ok(row.description.frame.y >= row.control.frame.y + 31);
+      }
+      const hint = group.key === "appearance" ? menu.directionHint : group.key === "buttons" ? menu.commentsHint : null;
+      if (hint) { assert.ok(hint.frame.y >= bottom); bottom = hint.frame.y + hint.frame.height; }
+    }
+    assert.ok(menu.footer.frame.y >= bottom + 8);
+    assert.equal(menu.scroll.contentSize.height - menu.footer.frame.y - menu.footer.frame.height, 8);
+    assert.equal(menu.footer.superview, menu.scroll);
+    assert.match(menu.footer.text, /Focus Switch · 乔木Joe · /);
+    assert.ok(menu.panel.frame.y + menu.panel.frame.height <= height - 12);
+  }
+});
+
+test("按钮样式选择沿用旧偏好，切换及重启保留设置且不执行评论操作", () => {
+  const defaults = { "cn.marginnote.focus-next.icon-display": true };
+  const run = runtime(defaults);
+  const menu = openMenu(run);
+  const style = menu.rows.find(row => row.key === "iconDisplay").control;
+  assert.deepEqual(style.segments, ["文字", "图标"]);
+  assert.equal(style.selectedSegmentIndex, 1);
+  const comments = JSON.stringify(run.nodes.notes.map(note => note.comments));
+  run.addon.setButtonStyle({ selectedSegmentIndex: 0 });
+  assert.equal(style.selectedSegmentIndex, 0);
+  assert.equal(defaults["cn.marginnote.focus-next.icon-display"], false);
+  for (const index of [-1, 2, NaN]) run.addon.setButtonStyle({ selectedSegmentIndex: index });
+  assert.equal(defaults["cn.marginnote.focus-next.icon-display"], false);
+  run.addon.setButtonStyle({ selectedSegmentIndex: 1 });
+  const restarted = runtime(defaults);
+  assert.equal(openMenu(restarted).rows.find(row => row.key === "iconDisplay").control.selectedSegmentIndex, 1);
+  assert.equal(JSON.stringify(run.nodes.notes.map(note => note.comments)), comments);
+  assert.deepEqual(run.messages, []);
+});
+
 function drag(run, moves, terminal = 3) {
   const resets = [];
   const recognizer = {
@@ -151,7 +449,15 @@ test("菜单只有标题栏可拖动，关闭按钮、开关和滚动区保持�
   assert.equal(menu.header.gestures.length, 1);
   assert.equal(menu.header.gestures[0].selector, "handleFocusSettingsPan:");
   assert.equal(menu.header.gestures[0].target, run.addon);
-  assert.equal(menu.header.frame.height, 56);
+  assert.equal(menu.header.frame.height, 44);
+  assert.equal(menu.close.frame.y, 0);
+  assert.equal(menu.close.frame.height, 44);
+  assert.ok(menu.title.frame.y + menu.title.frame.height <= menu.header.frame.height);
+  const master = menu.rows[0];
+  assert.equal(menu.scroll.frame.y, 88);
+  assert.ok(Math.abs(master.control.frame.height - 26.35) < 0.001);
+  assert.equal(master.control.frame.y + master.control.frame.height / 2, 66);
+  assert.equal(master.title.frame.y + master.title.frame.height / 2, 66);
   assert.ok(menu.header.frame.x + menu.header.frame.width < menu.close.frame.x);
   for (const view of [menu.panel, menu.close, menu.scroll, ...menu.rows.map(row => row.control)]) assert.equal(view.gestures, undefined);
   assert.equal(menu.close.selector, "closeFocusSettings:");

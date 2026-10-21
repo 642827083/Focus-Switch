@@ -20,6 +20,7 @@ var __FOCUS_NEXT_COMMANDS_GLOBAL__ = (function () {
       }
     }
     else if (key === "crossLevel") core.setCrossLevelEnabled(value);
+    else if (key === "next") core.setNextEnabled(value);
     else if (key === "previous") core.setPreviousEnabled(value);
     else if (key === "iconDisplay") core.setIconDisplay(value);
     else if (key === "groupedDisplay" || key === "horizontalLayout") {

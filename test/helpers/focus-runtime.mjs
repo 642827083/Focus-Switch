@@ -37,6 +37,18 @@ export function runtime(defaults = {}, width = 1024, height = 768) {
     constructor(frame) { super(frame); this.segments = []; this.selectedSegmentIndex = -1; }
     insertSegmentWithTitleAtIndexAnimated(title, index) { this.segments.splice(index, 0, title); }
   }
+  class Switch extends View {
+    constructor(frame) {
+      super(frame);
+      this.layer = { matrix: { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 }, setAffineTransform(value) { this.matrix = { ...value }; } };
+    }
+    set frame(value) { this.nativeFrame = { ...value }; }
+    get frame() {
+      const f = this.nativeFrame, m = this.layer && this.layer.matrix;
+      if (!m) return f;
+      return { x: f.x + f.width * (1 - m.a) / 2 + m.tx, y: f.y + f.height * (1 - m.d) / 2 + m.ty, width: f.width * m.a, height: f.height * m.d };
+    }
+  }
   let now = 0;
   const timers = [], messages = [], calls = [], urls = [];
   const nodes = tree();
@@ -65,7 +77,7 @@ export function runtime(defaults = {}, width = 1024, height = 768) {
     NSUserDefaults: { standardUserDefaults() { return {
       objectForKey(key) { return defaults[key]; }, setObjectForKey(value, key) { defaults[key] = value; },
     }; } },
-    UIView: View, UILabel: View, UIButton: Button, UISwitch: View, UIScrollView: View, UISegmentedControl: SegmentedControl,
+    UIView: View, UILabel: View, UIImageView: View, UIButton: Button, UISwitch: Switch, UIScrollView: View, UISegmentedControl: SegmentedControl,
     UIFont: { systemFontOfSize(size) { return size; }, boldSystemFontOfSize(size) { return size; } },
     UIColor: { whiteColor() { return color; }, darkGrayColor() { return color; }, grayColor() { return color; }, lightGrayColor() { return color; }, colorWithRedGreenBlueAlpha() { return color; } },
     UIPanGestureRecognizer: class { constructor(target, selector) { this.target = target; this.selector = selector; } },

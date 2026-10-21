@@ -227,7 +227,7 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
     if (!view) return false;
     const buttonDefinitions = [
       { property: "__focusPreviousButton", title: "上一张", icon: "arrow-up", action: "focusPrevious:", panAction: "handleFocusPreviousButtonPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.previousEnabled() },
-      { property: "__focusNextButton", title: "下一张", icon: "arrow-down", action: "focusNext:", panAction: "handleFocusNextButtonPan:", visible: addon.focusNextEnabled !== false },
+      { property: "__focusNextButton", title: "下一张", icon: "arrow-down", action: "focusNext:", panAction: "handleFocusNextButtonPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.nextEnabled() },
       { property: "__focusSourceButton", title: "查看原题", icon: "zoom-scan", action: "openOriginal:", pressAction: "pressOriginal:", panAction: "handleFocusSourceButtonPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.sourceEnabled() },
       { property: "__focusCollapseCommentsButton", title: "折叠评论", icon: "fold-vertical", action: "collapseComments:", pressAction: "pressComments:", panAction: "handleFocusCollapseCommentsPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.collapseCommentsEnabled() },
       { property: "__focusExpandCommentsButton", title: "展开评论", icon: "unfold-vertical", action: "expandComments:", pressAction: "pressComments:", panAction: "handleFocusExpandCommentsPan:", visible: addon.focusNextEnabled !== false && __FOCUS_NEXT_CORE_GLOBAL__.expandCommentsEnabled() },

@@ -17,10 +17,10 @@ test("图标模式默认关闭，开关即时更新五个按钮、面板并记�
   for (const [property, , title] of definitions) assert.equal(run.addon[property].title, title);
   run.addon.focusToolbarClick(); run.advance(300);
   const row = run.addon.__focusNextSettings.rows.find(row => row.key === "iconDisplay");
-  assert.equal(row.control.on, false);
-  assert.equal(row.control.selector, "setIconDisplay:");
-  run.addon.setIconDisplay({ on: true });
-  assert.equal(row.control.on, true);
+  assert.equal(row.control.selectedSegmentIndex, 0);
+  assert.equal(row.control.selector, "setButtonStyle:");
+  run.addon.setButtonStyle({ selectedSegmentIndex: 1 });
+  assert.equal(row.control.selectedSegmentIndex, 1);
   assert.equal(defaults["cn.marginnote.focus-next.icon-display"], true);
   for (const [property, icon] of definitions) {
     const button = run.addon[property];
@@ -34,8 +34,8 @@ test("图标模式默认关闭，开关即时更新五个按钮、面板并记�
   const restarted = runtime(defaults);
   restarted.addon.notebookWillOpen();
   for (const [property, icon] of definitions) assert.equal(restarted.addon[property].image.resourcePath, `button-icons/${icon}.png`);
-  run.addon.setIconDisplay({ on: false });
-  assert.equal(row.control.on, false);
+  run.addon.setButtonStyle({ selectedSegmentIndex: 0 });
+  assert.equal(row.control.selectedSegmentIndex, 0);
   for (const [property, , title] of definitions) {
     assert.equal(run.addon[property].image, null);
     assert.equal(run.addon[property].title, title);

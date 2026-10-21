@@ -76,7 +76,12 @@ var __FOCUS_NEXT_GROUP_GLOBAL__ = (function () {
   }
 
   function place(addon, parent, entries) {
-    if (!addon || !parent || !entries.length) return false;
+    if (!addon || !parent) return false;
+    if (!entries.length) {
+      hide(addon);
+      if (addon.__focusNextGroup) addon.__focusNextGroup.entries = [];
+      return false;
+    }
     const group = addon.__focusNextGroup || (addon.__focusNextGroup = create(addon));
     if (group.dragging) return true;
     const horizontal = __FOCUS_NEXT_CORE_GLOBAL__.horizontalLayout();

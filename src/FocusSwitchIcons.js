@@ -8,7 +8,7 @@ var __FOCUS_NEXT_ICONS_GLOBAL__ = (function () {
       if (typeof UIImage === "undefined" || typeof UIImage.imageWithDataScale !== "function" ||
         typeof NSData === "undefined" || typeof NSData.dataWithContentsOfFile !== "function") return null;
       const data = NSData.dataWithContentsOfFile(path);
-      // 安装包内使用三倍分辨率的 PNG，原生显示尺寸为 24 点。
+      // 安装包内使用三倍分辨率的 PNG，按钮图标为 24 点，分组箭头为 14 点。
       const result = data && UIImage.imageWithDataScale(data, 3);
       if (!result) throw new Error("图标资源不可用");
       cache[path] = result;

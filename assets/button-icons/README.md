@@ -16,4 +16,8 @@
 
 图标按钮统一使用 36 × 36 点外框；文字模式仍为原来的样式。
 
+面板分组箭头使用本项目绘制的 [section-chevron.svg](section-chevron.svg)，显示尺寸 14 × 14 点，线宽 1.5 点。朝右 PNG 为 42 × 42 像素，朝下 PNG 由它顺时针旋转 90° 得到；两种状态共用相同图形、颜色及中心位置，不使用字体字符。
+
+面板关闭按钮使用本项目绘制的 [panel-close.svg](panel-close.svg)，由两条斜线组成，无底色，线宽 1.5 点；PNG 为 48 × 48 像素，显示为 16 × 16 点，点击区域为 44 × 44 点。
+
 Lucide 授权及版权声明保留在 [LICENSE.txt](../../src/button-icons/LICENSE.txt)，Tabler 的 MIT 声明保留在 [TABLER-LICENSE.txt](../../src/button-icons/TABLER-LICENSE.txt)，均随插件安装包分发。

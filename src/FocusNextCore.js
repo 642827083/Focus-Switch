@@ -1,5 +1,6 @@
 var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   const ENABLED_KEY = "cn.marginnote.focus-next.enabled";
+  const NEXT_ENABLED_KEY = "cn.marginnote.focus-next.next-enabled";
   const PREVIOUS_ENABLED_KEY = "cn.marginnote.focus-next.previous-enabled";
   const CROSS_LEVEL_ENABLED_KEY = "cn.marginnote.focus-next.cross-level-enabled";
   const SOURCE_ENABLED_KEY = "cn.marginnote.focus-next.source-enabled";
@@ -284,6 +285,8 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
 
   function enabled() { return readBoolean(ENABLED_KEY, true); }
   function setEnabled(value) { return writeBoolean(ENABLED_KEY, value); }
+  function nextEnabled() { return readBoolean(NEXT_ENABLED_KEY, true); }
+  function setNextEnabled(value) { return writeBoolean(NEXT_ENABLED_KEY, value); }
   function previousEnabled() { return readBoolean(PREVIOUS_ENABLED_KEY, true); }
   function setPreviousEnabled(value) { return writeBoolean(PREVIOUS_ENABLED_KEY, value); }
   function crossLevelEnabled() { return readBoolean(CROSS_LEVEL_ENABLED_KEY, false); }
@@ -302,7 +305,7 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   function setHorizontalLayout(value) { return writeBoolean(HORIZONTAL_LAYOUT_KEY, value); }
 
   return { currentFocus, rememberFocus, rememberedFocus, navigationFocus, noteId, focusNext, focusPrevious, showMessage,
-    enabled, setEnabled, previousEnabled, setPreviousEnabled,
+    enabled, setEnabled, nextEnabled, setNextEnabled, previousEnabled, setPreviousEnabled,
     crossLevelEnabled, setCrossLevelEnabled, sourceEnabled, setSourceEnabled,
     collapseCommentsEnabled, setCollapseCommentsEnabled, expandCommentsEnabled, setExpandCommentsEnabled,
     iconDisplay, setIconDisplay, groupedDisplay, setGroupedDisplay, horizontalLayout, setHorizontalLayout };

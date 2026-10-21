@@ -44,17 +44,34 @@ function createFocusNextAddon(mainPath) {
     },
 
     closeFocusSettings: function () { __FOCUS_NEXT_SETTINGS_GLOBAL__.hide(self); },
+    toggleSettingsSwitchRow: function (sender) { __FOCUS_NEXT_SETTINGS_GLOBAL__.toggleSwitchRow(self, sender); },
+    toggleAppearanceSection: function () { __FOCUS_NEXT_SETTINGS_GLOBAL__.toggleSection(self, "appearance"); },
+    toggleNavigationSection: function () { __FOCUS_NEXT_SETTINGS_GLOBAL__.toggleSection(self, "navigation"); },
+    toggleButtonsSection: function () { __FOCUS_NEXT_SETTINGS_GLOBAL__.toggleSection(self, "buttons"); },
 
     handleFocusSettingsPan: function (recognizer) { __FOCUS_NEXT_SETTINGS_GLOBAL__.handlePan(self, recognizer); },
 
     setFocusEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "enabled", Boolean(sender.on)); },
     setCrossLevelEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "crossLevel", Boolean(sender.on)); },
+    setNavigationScope: function (sender) {
+      const index = Number(sender.selectedSegmentIndex);
+      if (index === 0 || index === 1) __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "crossLevel", index === 1);
+    },
     setPreviousEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "previous", Boolean(sender.on)); },
+    setNextEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "next", Boolean(sender.on)); },
     setSourceEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "source", Boolean(sender.on)); },
     setCollapseCommentsEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "collapseComments", Boolean(sender.on)); },
     setExpandCommentsEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "expandComments", Boolean(sender.on)); },
     setIconDisplay: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "iconDisplay", Boolean(sender.on)); },
+    setButtonStyle: function (sender) {
+      const index = Number(sender.selectedSegmentIndex);
+      if (index === 0 || index === 1) __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "iconDisplay", index === 1);
+    },
     setGroupedDisplay: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "groupedDisplay", Boolean(sender.on)); },
+    setButtonLayout: function (sender) {
+      const index = Number(sender.selectedSegmentIndex);
+      if (index === 0 || index === 1) __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "groupedDisplay", index === 1);
+    },
     setGroupDirection: function (sender) {
       const index = Number(sender.selectedSegmentIndex);
       if (index === 0 || index === 1) __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "horizontalLayout", index === 1);
@@ -109,7 +126,7 @@ function createFocusNextAddon(mainPath) {
         self.__focusNextSuppressTap = false;
         return;
       }
-      if (self.focusNextEnabled === false) return;
+      if (self.focusNextEnabled === false || !__FOCUS_NEXT_CORE_GLOBAL__.nextEnabled()) return;
       try {
         __FOCUS_NEXT_CORE_GLOBAL__.focusNext(self);
       }
