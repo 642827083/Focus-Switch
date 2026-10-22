@@ -3,6 +3,7 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   const NEXT_ENABLED_KEY = "cn.marginnote.focus-next.next-enabled";
   const PREVIOUS_ENABLED_KEY = "cn.marginnote.focus-next.previous-enabled";
   const CROSS_LEVEL_ENABLED_KEY = "cn.marginnote.focus-next.cross-level-enabled";
+  const AI_ENABLED_KEY = "cn.marginnote.focus-next.ai-enabled";
   const SOURCE_ENABLED_KEY = "cn.marginnote.focus-next.source-enabled";
   const COLLAPSE_COMMENTS_ENABLED_KEY = "cn.marginnote.focus-next.collapse-comments-enabled";
   const EXPAND_COMMENTS_ENABLED_KEY = "cn.marginnote.focus-next.expand-comments-enabled";
@@ -291,6 +292,8 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   function setPreviousEnabled(value) { return writeBoolean(PREVIOUS_ENABLED_KEY, value); }
   function crossLevelEnabled() { return readBoolean(CROSS_LEVEL_ENABLED_KEY, false); }
   function setCrossLevelEnabled(value) { return writeBoolean(CROSS_LEVEL_ENABLED_KEY, value); }
+  function aiEnabled() { return readBoolean(AI_ENABLED_KEY, false); }
+  function setAiEnabled(value) { return writeBoolean(AI_ENABLED_KEY, value); }
   function sourceEnabled() { return readBoolean(SOURCE_ENABLED_KEY, false); }
   function setSourceEnabled(value) { return writeBoolean(SOURCE_ENABLED_KEY, value); }
   function collapseCommentsEnabled() { return readBoolean(COLLAPSE_COMMENTS_ENABLED_KEY, true); }
@@ -306,7 +309,7 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
 
   return { currentFocus, rememberFocus, rememberedFocus, navigationFocus, noteId, focusNext, focusPrevious, showMessage,
     enabled, setEnabled, nextEnabled, setNextEnabled, previousEnabled, setPreviousEnabled,
-    crossLevelEnabled, setCrossLevelEnabled, sourceEnabled, setSourceEnabled,
+    crossLevelEnabled, setCrossLevelEnabled, sourceEnabled, setSourceEnabled, aiEnabled, setAiEnabled,
     collapseCommentsEnabled, setCollapseCommentsEnabled, expandCommentsEnabled, setExpandCommentsEnabled,
     iconDisplay, setIconDisplay, groupedDisplay, setGroupedDisplay, horizontalLayout, setHorizontalLayout };
 })();

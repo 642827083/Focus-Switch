@@ -59,6 +59,7 @@ function createFocusNextAddon(mainPath) {
     },
     setPreviousEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "previous", Boolean(sender.on)); },
     setNextEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "next", Boolean(sender.on)); },
+    setAiEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "ai", Boolean(sender.on)); },
     setSourceEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "source", Boolean(sender.on)); },
     setCollapseCommentsEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "collapseComments", Boolean(sender.on)); },
     setExpandCommentsEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "expandComments", Boolean(sender.on)); },
@@ -77,6 +78,15 @@ function createFocusNextAddon(mainPath) {
       if (index === 0 || index === 1) __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "horizontalLayout", index === 1);
     },
     handleFocusGroupPan: function (recognizer) { __FOCUS_NEXT_GROUP_GLOBAL__.handlePan(self, recognizer); },
+
+    pressAi: function () { __FOCUS_NEXT_SOURCE_GLOBAL__.press(self, true); },
+    openAi: function () {
+      if (self.__focusNextSuppressTap) { self.__focusNextSuppressTap = false; __FOCUS_NEXT_SOURCE_GLOBAL__.clear(self); return; }
+      if (!self.__focusAiButton || self.__focusAiButton.hidden) return;
+      try { __FOCUS_NEXT_SOURCE_GLOBAL__.open(self, true); }
+      catch (error) { __FOCUS_NEXT_CORE_GLOBAL__.showMessage(self, String(error && error.message || error)); }
+    },
+    handleFocusAiButtonPan: function (recognizer) { __FOCUS_NEXT_UI_GLOBAL__.handleAiPan(self, recognizer); },
 
     pressOriginal: function () { __FOCUS_NEXT_SOURCE_GLOBAL__.press(self); },
     pressComments: function () { __FOCUS_NEXT_COMMENTS_GLOBAL__.press(self); },

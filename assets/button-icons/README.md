@@ -21,3 +21,5 @@
 面板关闭按钮使用本项目绘制的 [panel-close.svg](panel-close.svg)，由两条斜线组成，无底色，线宽 1.5 点；PNG 为 48 × 48 像素，显示为 16 × 16 点，点击区域为 44 × 44 点。
 
 Lucide 授权及版权声明保留在 [LICENSE.txt](../../src/button-icons/LICENSE.txt)，Tabler 的 MIT 声明保留在 [TABLER-LICENSE.txt](../../src/button-icons/TABLER-LICENSE.txt)，均随插件安装包分发。
+
+“问 AI”使用本项目绘制的 [message-circle.svg](message-circle.svg) 对话气泡，PNG 为 72 × 72 像素透明图，白色 1.8 点描边，按 24 点显示。

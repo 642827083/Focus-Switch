@@ -97,19 +97,22 @@ var __FOCUS_NEXT_SOURCE_GLOBAL__ = (function () {
 
   function clear(addon) { if (addon) addon.__focusNextSourcePress = null; }
 
-  function press(addon) {
+  function enabled(ai) { return ai ? __FOCUS_NEXT_CORE_GLOBAL__.aiEnabled() : __FOCUS_NEXT_CORE_GLOBAL__.sourceEnabled(); }
+
+  function press(addon, ai) {
     clear(addon);
-    if (addon.focusNextEnabled === false || !__FOCUS_NEXT_CORE_GLOBAL__.sourceEnabled()) return;
+    if (addon.focusNextEnabled === false || !enabled(ai)) return;
     try {
       const current = selected(addon);
-      if (current.note) addon.__focusNextSourcePress = { note: current.note, notebookId: current.notebookId, selected: current.selected, focusId: current.focusId, at: Date.now() };
+      if (current.note) addon.__focusNextSourcePress = { ai: Boolean(ai), note: current.note, notebookId: current.notebookId, selected: current.selected, focusId: current.focusId, at: Date.now() };
     } catch (ignored) {}
   }
 
-  function open(addon) {
+  function open(addon, ai) {
     const pressed = addon.__focusNextSourcePress;
     clear(addon);
-    if (addon.focusNextEnabled === false || !__FOCUS_NEXT_CORE_GLOBAL__.sourceEnabled()) return false;
+    if (addon.focusNextEnabled === false || !enabled(ai)) return false;
+    if (pressed && pressed.ai !== Boolean(ai)) throw new Error("操作已变化，请重新点击");
     const current = selected(addon);
     if (pressed && pressed.notebookId !== current.notebookId) throw new Error("学习集已切换，请重新选中题卡或进入焦点");
     // 点击浮动按钮可能清空选中项，只保留本次按下至松手的短暂操作上下文。
@@ -127,7 +130,8 @@ var __FOCUS_NEXT_SOURCE_GLOBAL__ = (function () {
     }
     const target = sourceFor(note), app = Application.sharedInstance();
     if (typeof app.openURL !== "function" || typeof NSURL === "undefined" || typeof NSURL.URLWithString !== "function") throw new Error("当前 MarginNote 版本不支持打开原题链接");
-    const address = NSURL.URLWithString(target.url);
+    if (ai && target.provider !== "daguanyuan" && target.provider !== "jifengjincao") throw new Error("这张题卡的来源暂不支持问 AI");
+    const address = NSURL.URLWithString(ai ? target.url.replace("?action=open&", "?action=ask-ai&") : target.url);
     if (!address) throw new Error("原题链接无法打开");
     app.openURL(address);
     return target;

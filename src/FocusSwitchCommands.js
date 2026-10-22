@@ -29,6 +29,7 @@ var __FOCUS_NEXT_COMMANDS_GLOBAL__ = (function () {
       __FOCUS_NEXT_SOURCE_GLOBAL__.clear(addon);
       __FOCUS_NEXT_COMMENTS_GLOBAL__.clearPress(addon);
     }
+    else if (key === "ai") { core.setAiEnabled(value); __FOCUS_NEXT_SOURCE_GLOBAL__.clear(addon); }
     else if (key === "source") { core.setSourceEnabled(value); __FOCUS_NEXT_SOURCE_GLOBAL__.clear(addon); }
     else if (key === "collapseComments" || key === "expandComments") {
       if (key === "collapseComments") core.setCollapseCommentsEnabled(value);

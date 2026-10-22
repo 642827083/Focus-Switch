@@ -28,8 +28,8 @@ test("单击只弹出窄面板，显示相关设置上移，默认值与说明�
   assert.ok(menu.scroll.contentSize.height >= menu.scroll.frame.height);
   assert.equal(menu.panel.superview, run.controller.view);
   assert.equal(run.addon.focusNextEnabled, true);
-  assert.deepEqual(Array.from(menu.rows, row => row.title.text), ["启用焦点切换", "按钮样式", "按钮布局", "排列方向", "切换范围", "下一张", "上一张", "查看原题", "折叠评论", "展开评论"]);
-  assert.deepEqual(Array.from(menu.rows, row => row.segmented ? row.control.selectedSegmentIndex : row.control.on), [true, 0, 0, 0, 0, true, true, false, true, true]);
+  assert.deepEqual(Array.from(menu.rows, row => row.title.text), ["启用焦点切换", "按钮样式", "按钮布局", "排列方向", "切换范围", "下一张", "上一张", "查看原题", "问 AI", "折叠评论", "展开评论"]);
+  assert.deepEqual(Array.from(menu.rows, row => row.segmented ? row.control.selectedSegmentIndex : row.control.on), [true, 0, 0, 0, 0, true, true, false, false, true, true]);
   assert.deepEqual(menu.rows[3].control.segments, ["竖向", "横向"]);
   run.addon.closeFocusSettings();
   assert.equal(menu.panel.superview, undefined);
@@ -235,7 +235,7 @@ test("默认展开外观，折叠其他两组，查看原题关闭且其余四�
   assert.deepEqual(Array.from(menu.groups, group => group.expanded), [true, false, false]);
   assert.equal(menu.groups[0].description.text, "文字 · 分散 · 竖向");
   assert.equal(menu.groups[1].description.text, "同级卡片");
-  assert.equal(menu.groups[2].description.text, "已开启 4/5");
+  assert.equal(menu.groups[2].description.text, "已开启 4/6");
   for (const property of ["__focusNextButton", "__focusPreviousButton", "__focusCollapseCommentsButton", "__focusExpandCommentsButton"]) assert.equal(run.addon[property].hidden, false);
   assert.equal(run.addon.__focusSourceButton, undefined);
   const selectors = ["toggleAppearanceSection:", "toggleNavigationSection:", "toggleButtonsSection:"];
@@ -264,9 +264,9 @@ test("分组可同时展开，独立记忆，收起不改按钮设置且修正�
   run.addon.setCrossLevelEnabled({ on: true });
   assert.equal(menu.groups[0].description.text, "图标 · 集中 · 横向");
   assert.equal(menu.groups[1].description.text, "整张脑图");
-  assert.equal(menu.groups[2].description.text, "已开启 4/5");
+  assert.equal(menu.groups[2].description.text, "已开启 4/6");
   run.addon.setNextEnabled({ on: false });
-  assert.equal(menu.groups[2].description.text, "已开启 3/5");
+  assert.equal(menu.groups[2].description.text, "已开启 3/6");
   const settingsBefore = { ...defaults };
   const origin = { x: menu.panel.frame.x, y: menu.panel.frame.y };
   menu.scroll.contentOffset = { x: 0, y: 100000 };
@@ -285,7 +285,7 @@ test("分组可同时展开，独立记忆，收起不改按钮设置且修正�
   const restored = openMenu(restarted);
   assert.deepEqual(Array.from(restored.groups, group => group.expanded), [false, false, false]);
   assert.ok(Math.abs(restored.panel.frame.y - origin.y) < 0.001);
-  assert.equal(restored.groups[2].description.text, "已开启 3/5");
+  assert.equal(restored.groups[2].description.text, "已开启 3/6");
   assert.equal(restored.rows.find(row => row.key === "source").control.on, true);
   run.addon.closeFocusSettings();
   const stored = defaults["cn.marginnote.focus-next.settings-sections"];
@@ -376,7 +376,7 @@ test("折叠分组在分屏及横竖屏下保持层级、开关和页脚间距",
     const menu = openMenu(run);
     run.addon.toggleNavigationSection(); run.addon.toggleButtonsSection();
     assert.deepEqual(Array.from(menu.groups, group => group.title.text), ["外观与排列", "卡片切换", "显示按钮"]);
-    assert.equal(menu.groups[2].description.text, "已开启 4/5");
+    assert.equal(menu.groups[2].description.text, "已开启 4/6");
     assert.equal(menu.rows[0].control.superview, menu.panel);
     assert.ok(menu.scroll.frame.y >= menu.rows[0].control.frame.y + 31);
     let bottom = 0;
