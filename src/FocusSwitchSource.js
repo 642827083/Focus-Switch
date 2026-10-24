@@ -137,5 +137,16 @@ var __FOCUS_NEXT_SOURCE_GLOBAL__ = (function () {
     return target;
   }
 
-  return { sourceFor, press, open, clear };
+  function foldBoundary(note) {
+    let target;
+    try { target = sourceFor(note); } catch (ignored) { return null; }
+    const comments = items(value(note, "comments"));
+    const link = `[查看原题](${target.url})`;
+    for (let index = 0; index < comments.length; index += 1) {
+      if (String(value(comments[index], "text") || "").indexOf(link) >= 0) return { index: index + 1, count: comments.length, url: target.url };
+    }
+    return null;
+  }
+
+  return { sourceFor, foldBoundary, press, open, clear };
 })();

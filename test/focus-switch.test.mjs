@@ -212,20 +212,40 @@ test("卡片切换范围沿用旧偏好，选择后同步摘要、说明及实�
   }
 });
 
-test("各组箭头共用相同几何图形的两个方向，反复展开不改变尺寸或中心", () => {
+for (const native of [false, true]) test(`分组箭头反复切换保持尺寸与中心：${native ? "原生过渡" : "无动画接口"}`, () => {
   const run = runtime();
   const menu = openMenu(run);
+  const animations = [];
+  if (native) {
+    run.context.CABasicAnimation = { animationWithKeyPath: keyPath => ({ keyPath }) };
+    run.context.CAMediaTimingFunction = { functionWithControlPoints: (...points) => points };
+    run.context.CATransaction = { begin() {}, commit() {}, setAnimationDuration(seconds) { assert.equal(seconds, 0.16); } };
+    menu.groups.forEach(group => Object.assign(group.arrow.layer, {
+      setAffineTransform(matrix) { this.matrix = matrix; },
+      presentationLayer() { return { affineTransform: () => ({ a: Math.cos(0.4), b: Math.sin(0.4) }) }; },
+      addAnimationForKey(animation, key) { assert.equal(key, "__FOCUS_NEXT_SECTION_ARROW__"); animations.push(animation); },
+    }));
+    run.context.__FOCUS_NEXT_SETTINGS_GLOBAL__.layout(run.addon);
+  }
   for (const [index, method] of ["toggleAppearanceSection", "toggleNavigationSection", "toggleButtonsSection"].entries()) {
     const group = menu.groups[index];
     const frame = { ...group.arrow.frame };
     for (let click = 0; click < 4; click++) {
       run.addon[method]();
-      assert.equal(group.arrow.image.resourcePath, group.expanded ? "button-icons/section-chevron-down.png" : "button-icons/section-chevron-right.png");
+      assert.equal(group.arrow.image.resourcePath, !native && group.expanded ? "button-icons/section-chevron-down.png" : "button-icons/section-chevron-right.png");
+      if (native) {
+        const animation = animations.at(-1);
+        assert.equal(animation.keyPath, "transform.rotation.z");
+        assert.ok(Math.abs(animation.fromValue - 0.4) < 1e-8);
+        assert.equal(animation.toValue, group.expanded ? Math.PI / 2 : 0);
+        assert.equal(group.arrow.layer.matrix.b, group.expanded ? 1 : 0);
+      }
       assert.deepEqual(group.arrow.image.size, { width: 14, height: 14 });
       assert.deepEqual({ ...group.arrow.frame }, frame);
       assert.equal(group.arrow.superview, group.button);
     }
   }
+  if (native) assert.equal(animations.length, 12);
 });
 
 test("默认展开外观，折叠其他两组，查看原题关闭且其余四个按钮开启", () => {

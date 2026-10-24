@@ -67,8 +67,7 @@ var __FOCUS_NEXT_COMMENTS_GLOBAL__ = (function () {
 
   function receipt(result, id) {
     if (!result || result.ok !== true) {
-      const error = result && result.error;
-      throw new Error(`${error && error.code || "COMMENT_STATE_UNSUPPORTED"}：${error && error.message || "未能取得评论折叠状态"}`);
+      throw __FOCUS_NEXT_COMMENT_DIAGNOSTICS_GLOBAL__.failure(result && result.error);
     }
     if (result.noteid !== id || typeof result.revision !== "string" || !result.revision || !Array.isArray(result.comments) ||
       result.comments.some(function (comment, index) { return !comment || comment.index !== index + 1 || typeof comment.collapsed !== "boolean"; })) {
@@ -88,7 +87,12 @@ var __FOCUS_NEXT_COMMENTS_GLOBAL__ = (function () {
     return note;
   }
 
-  function read(note, id) { return receipt(note.commentState(), id); }
+  function read(note, id) {
+    let result;
+    try { result = note.commentState(); }
+    catch (error) { throw __FOCUS_NEXT_COMMENT_DIAGNOSTICS_GLOBAL__.failure(error); }
+    return receipt(result, id);
+  }
 
   function hasMainExcerpt(note) {
     const text = value(note, "excerptText");
@@ -105,7 +109,10 @@ var __FOCUS_NEXT_COMMENTS_GLOBAL__ = (function () {
     // 原生入口自行完成保存、撤销与刷新，不额外保存数据库或包装撤销组。
     let result;
     try {
-      result = receipt(work.note.setCommentsCollapsed(targets.map(function (index) { return { index }; }), collapsed, work.state.revision), work.id);
+      let raw;
+      try { raw = work.note.setCommentsCollapsed(targets.map(function (index) { return { index }; }), collapsed, work.state.revision); }
+      catch (error) { throw __FOCUS_NEXT_COMMENT_DIAGNOSTICS_GLOBAL__.failure(error); }
+      result = receipt(raw, work.id);
       if (result.persisted !== true || result.collapsed !== collapsed || result.requestedCount !== targets.length ||
         !Number.isSafeInteger(result.changedCount) || result.changedCount < 0 || result.changedCount > targets.length ||
         !Array.isArray(result.affectedOwnerNoteIds) || result.affectedOwnerNoteIds.some(function (id) { return typeof id !== "string" || !id; }) ||
@@ -120,12 +127,29 @@ var __FOCUS_NEXT_COMMENTS_GLOBAL__ = (function () {
     return result;
   }
 
+  function foldRule(note, state) {
+    const boundary = __FOCUS_NEXT_SOURCE_GLOBAL__.foldBoundary(note);
+    if (boundary) {
+      if (boundary.count !== state.comments.length || boundary.index > state.comments.length) throw new Error("COMMENT_CHANGED：评论已变化，请重新点击后重试");
+      return { imported: true, start: boundary.index, key: `source:${boundary.index}:${boundary.url}` };
+    }
+    const keep = hasMainExcerpt(note) ? 0 : 1;
+    return { imported: false, start: keep + 1, key: `body:${keep}` };
+  }
+
+  function targetState(work, index) {
+    if (!work.collapsed) return false;
+    if (work.rule.imported && index < work.rule.start) return null;
+    return index >= work.rule.start;
+  }
+
   function finish(addon, request, error) {
     if (addon.__focusNextCommentsRequest !== request) return;
     cancel(addon);
+    if (error) { __FOCUS_NEXT_COMMENT_DIAGNOSTICS_GLOBAL__.show(addon, request, error); return; }
     const verb = request.collapsed ? "折叠" : "展开";
-    const message = error ? `已处理 ${request.completed}/${request.ids.length} 张卡片；${String(error.message || error)}`
-      : `已${verb} ${request.completed} 张卡片的评论${request.collapsed ? "，保留正文第一项" : ""}`;
+    const suffix = request.usedSourceRule ? (request.usedBodyRule ? "，按各卡片规则保留正文" : "，保留原题链接上方内容") : "，保留正文第一项";
+    const message = `已${verb} ${request.completed} 张卡片的评论${request.collapsed ? suffix : ""}`;
     __FOCUS_NEXT_CORE_GLOBAL__.showMessage(addon, message);
   }
 
@@ -136,24 +160,38 @@ var __FOCUS_NEXT_COMMENTS_GLOBAL__ = (function () {
     }
     try {
       if (!request.work) {
-        const id = request.ids[request.completed], note = databaseNote(id), state = read(note, id);
-        // 主摘录排在评论前且不占评论索引，有主摘录时不再额外保留第一条评论。
-        const keepComments = hasMainExcerpt(note) ? 0 : 1;
-        request.work = { id, note, state, keepComments, remaining: state.comments.filter(function (comment) {
-          return comment.collapsed !== (request.collapsed && comment.index > keepComments);
-        }).map(function (comment) { return comment.index; }) };
+        request.stage = "首次读取";
+        const id = request.ids[request.completed], note = databaseNote(id);
+        request.currentNote = note;
+        const state = read(note, id);
+        // 三插件题卡从原题链接所在评论起折叠，上方评论不写入；其余卡片沿用首项规则。
+        const rule = request.collapsed ? foldRule(note, state) : null;
+        const work = { id, note, state, rule, collapsed: request.collapsed };
+        if (rule && rule.imported) request.usedSourceRule = true;
+        else if (rule) request.usedBodyRule = true;
+        work.remaining = state.comments.filter(function (comment) {
+          const target = targetState(work, comment.index);
+          return target !== null && comment.collapsed !== target;
+        }).map(function (comment) { return comment.index; });
+        request.work = work;
       }
       const work = request.work;
       if (work.remaining.length) {
-        const target = request.collapsed && work.remaining[0] > work.keepComments;
-        const indices = work.remaining.filter(function (index) { return (request.collapsed && index > work.keepComments) === target; }).slice(0, 200);
+        const target = targetState(work, work.remaining[0]);
+        const indices = work.remaining.filter(function (index) { return targetState(work, index) === target; }).slice(0, 200);
+        request.stage = "写前读取";
         const latest = read(work.note, work.id);
         if (latest.revision !== work.state.revision) throw new Error("COMMENT_CHANGED：评论已变化，请重新点击后重试");
-        if (request.collapsed && (hasMainExcerpt(work.note) ? 0 : 1) !== work.keepComments) {
-          throw new Error("COMMENT_CHANGED：主摘录已变化，请重新点击后重试");
+        if (request.collapsed) {
+          const currentRule = foldRule(work.note, latest);
+          if (currentRule.key !== work.rule.key) throw new Error(work.rule.imported || currentRule.imported
+            ? "COMMENT_CHANGED：折叠起点或题目来源已变化，请重新点击后重试"
+            : "COMMENT_CHANGED：主摘录已变化，请重新点击后重试");
         }
         if (!active(addon, request.id)) { if (addon.__focusNextCommentsRequest === request) cancel(addon); return; }
+        request.stage = "写入";
         const result = write(work, indices, target);
+        request.stage = "写后回读";
         const saved = read(work.note, work.id);
         if (saved.revision !== result.revision || saved.comments.length !== result.comments.length) throw new Error("COMMENT_CHANGED：评论已变化，请重新点击后重试");
         if (saved.comments.some(function (comment, index) { return comment.collapsed !== result.comments[index].collapsed; })) {
@@ -162,7 +200,7 @@ var __FOCUS_NEXT_COMMENTS_GLOBAL__ = (function () {
         work.state = saved;
         work.remaining = work.remaining.filter(function (index) { return indices.indexOf(index) < 0; });
       }
-      if (!work.remaining.length) { request.completed += 1; request.work = null; }
+      if (!work.remaining.length) { request.completed += 1; request.work = null; request.currentNote = null; }
       if (!active(addon, request.id)) { if (addon.__focusNextCommentsRequest === request) cancel(addon); return; }
       if (request.completed === request.ids.length) { finish(addon, request); return; }
       schedule(addon, request);
@@ -193,7 +231,8 @@ var __FOCUS_NEXT_COMMENTS_GLOBAL__ = (function () {
     if (typeof NSTimer === "undefined" || typeof NSTimer.scheduledTimerWithTimeInterval !== "function") throw new Error("当前宿主无法调度评论操作");
     const id = Number(addon.__focusNextCommentsToken || 0) + 1;
     addon.__focusNextCommentsToken = id;
-    const request = { id, ids: current.ids, notebookId: current.notebookId, collapsed: Boolean(collapsed), completed: 0, work: null };
+    addon.__focusNextCommentDiagnostic = null;
+    const request = { id, ids: current.ids, notebookId: current.notebookId, collapsed: Boolean(collapsed), completed: 0, work: null, currentNote: null, stage: "等待执行" };
     addon.__focusNextCommentsRequest = request;
     try { schedule(addon, request); }
     catch (error) { cancel(addon); throw error; }

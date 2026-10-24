@@ -371,3 +371,171 @@ test("评论按钮14点样式、独立拖动与小窗口布局保持一致", () 
   for (let i = 1; i < buttons.length; i++) assert.ok(buttons[i].frame.y >= buttons[i - 1].frame.y + 36);
   assert.ok(buttons.at(-1).frame.y + 36 <= 200);
 });
+
+
+test("诊断包区分原生读取与写入失败，保留结构详情且不泄露评论内容", () => {
+  for (const failureStage of ['read', 'write']) {
+    const run = runtime(); const logs = [];
+    run.context.console = { log(message) { logs.push(String(message)); } };
+    const host = nativeHost(run, { a1: comments([false, false]) }, {
+      before({ action }) {
+        if (action !== failureStage) return;
+        return { ok: false, error: { code: 'COMMENT_STATE_UNSUPPORTED', message: 'Unsupported Comment metadata; no changes applied. PRIVATE-TEXT',
+          details: { commentIndex: 2, metadataVersion: 7, field: 'comments[1].metadata.version', actualType: 'string', text: 'PRIVATE-TEXT', noteId: 'PRIVATE-ID', metadata: { version: 7, content: 'PRIVATE-CONTENT' } } } };
+      }
+    });
+    host.notes.a1.comments = [{ type: 'TextNote', text: 'PRIVATE-TEXT' }, { type: 'PaintNote', drawing: 'PRIVATE-DRAWING' }];
+    run.addon.collapseComments(); host.drain();
+    const report = run.messages.at(-1);
+    assert.match(report, /DEBUG-CF1/);
+    assert.ok(report.includes(failureStage === 'read' ? '首次读取' : '写入'));
+    assert.match(report, /commentIndex=2/); assert.match(report, /metadataVersion=7/);
+    assert.match(report, /field=comments\[1\]\.metadata\.version/);
+    assert.match(report, /actualType=string/);
+    assert.match(report, /评论数=2；TextNote=1，PaintNote=1/);
+    assert.doesNotMatch(report + logs.join(''), /PRIVATE/);
+    assert.equal(host.writes.length, 0); assert.equal(host.state.a1[1].collapsed, false);
+    assert.equal(logs.length, 1);
+  }
+});
+
+test("诊断包区分写前读取和写后回读，宿主直接抛错同样经过脱敏", () => {
+  for (const targetRead of [2, 3]) {
+    const run = runtime(); let reads = 0;
+    const host = nativeHost(run, { a1: comments([false, false]) }, { before({ action }) {
+      if (action === 'read' && ++reads === targetRead) throw { code: 'COMMENT_STATE_UNSUPPORTED', message: 'PRIVATE-EXCEPTION', details: { commentIndex: 2 } };
+    } });
+    run.addon.collapseComments(); host.drain();
+    assert.ok(run.messages.at(-1).includes(targetRead === 2 ? '写前读取' : '写后回读'));
+    assert.match(run.messages.at(-1), /commentIndex=2/);
+    assert.doesNotMatch(run.messages.at(-1), /PRIVATE/);
+    assert.equal(host.writes.length, targetRead === 2 ? 0 : 1);
+  }
+});
+
+test("诊断使用可截图弹窗并支持原生评论集合，不记录未知类型文本", () => {
+  const run = runtime(); const alerts = [], original = run.context.Application.sharedInstance;
+  run.context.Application.sharedInstance = () => ({ ...original(), alert(message) { alerts.push(message); } });
+  const host = nativeHost(run, { a1: comments([false, false]) }, { before() { return { ok: false, error: { code: 'COMMENT_STATE_UNSUPPORTED' } }; } });
+  host.notes.a1.comments = () => ({ count: () => 2, objectAtIndex: index => ({ type: () => index ? 'PRIVATE-TYPE' : 'PaintNote', text: 'PRIVATE-TEXT' }) });
+  run.addon.collapseComments(); host.drain();
+  assert.equal(alerts.length, 1); assert.equal(run.messages.length, 0);
+  assert.match(alerts[0], /评论数=2；PaintNote=1，其他\(string\)=1/);
+  assert.doesNotMatch(alerts[0], /PRIVATE/);
+});
+
+test("诊断包支持缺失、循环及原生字典详情，写入失败后的回读不覆盖原错误", () => {
+  const cycle = {}; cycle.metadata = cycle;
+  for (const details of [undefined, cycle, { objectForKey(key) { return ({ commentIndex: 2, actualType: 'object' })[key]; } }]) {
+    const run = runtime(); let failed = false;
+    const host = nativeHost(run, { a1: comments([false, false]) }, { before({ action }) {
+      if (action === 'write') { failed = true; return { ok: false, error: { code: 'COMMENT_STATE_UNSUPPORTED', details } }; }
+      if (failed) return { ok: false, error: { code: 'SAVE_FAILED', details: { commentIndex: 99 } } };
+    } });
+    run.addon.collapseComments(); host.drain();
+    assert.match(run.messages.at(-1), /DEBUG-CF1.*写入/s);
+    assert.match(run.messages.at(-1), /COMMENT_STATE_UNSUPPORTED/);
+    assert.doesNotMatch(run.messages.at(-1), /commentIndex=99/);
+    assert.equal(host.writes.length, 0);
+  }
+});
+
+
+test('诊断遇到卡片读取异常时不输出异常携带的正文', () => {
+  const run = runtime(); const logs = []; run.context.console = { log: text => logs.push(String(text)) };
+  run.context.Database = { sharedInstance() { return { getNoteById() { throw new Error('PRIVATE-NOTE-CONTENT'); } }; } };
+  run.addon.collapseComments(); run.advance(20);
+  assert.match(run.messages.at(-1), /DEBUG-CF1/);
+  assert.doesNotMatch(run.messages.at(-1) + logs.join(''), /PRIVATE/);
+});
+
+
+const importedSources = [
+  ['大观园数学', 'daguanyuan-bridge?action=open&provider=math&question=42&year=0&url=' + encodeURIComponent('https://www.cxyonly.fans/math/questions/42'), 'DAGUANYUAN_QUESTION_ID:42'],
+  ['大观园408', 'daguanyuan-bridge?action=open&provider=408&question=42&year=2023&url=' + encodeURIComponent('https://www.408os.cn/exercise?year=2023&questionId=42'), 'DAGUANYUAN_408_QUESTION_ID:42'],
+  ['研可岸', 'yankean-bridge?action=open&source=math&question=42', 'YANKEAN_PAPER_QUESTION:MATH:42'],
+  ['疾风劲草', 'jifengjincao-bridge?action=open&paper=8&question=42', 'JFJC_QUESTION:8:42'],
+];
+function importedComments(flags, start, source = importedSources[0]) {
+  const rows = comments(flags);
+  rows[start - 1].type = 'TextNote';
+  rows[start - 1].text = '[查看原题](marginnote4app://addon/' + source[1] + ')\n\n<!-- ' + source[2] + ' -->';
+  return rows;
+}
+function attachComments(host, id) { host.notes[id].comments = host.state[id]; }
+
+for (const source of importedSources) test(source[0] + '导入题卡从原题链接评论起折叠，上方各项状态保持不变', () => {
+  for (const start of [1, 2, 3]) for (const excerpt of ['', '主摘录']) {
+    const run = runtime(), rows = importedComments([true, false, false, false, false], start, source);
+    const host = nativeHost(run, { a1: rows }); attachComments(host, 'a1'); host.notes.a1.excerptText = excerpt;
+    const original = host.state.a1.map(row => row.collapsed);
+    run.addon.collapseComments(); host.drain();
+    assert.deepEqual(host.state.a1.map(row => row.collapsed), original.map((flag, index) => index + 1 >= start ? true : flag));
+    assert.ok(host.writes.every(write => write.targets.every(target => target.index >= start)));
+    assert.match(run.messages.at(-1), /原题链接/);
+    const count = host.writes.length; run.addon.collapseComments(); host.drain(); assert.equal(host.writes.length, count);
+    run.addon.expandComments(); host.drain(); assert.ok(host.state.a1.every(row => !row.collapsed));
+    assert.deepEqual(host.state.a1.map(({ collapsed, ...rest }) => rest), rows.map(({ collapsed, ...rest }) => rest));
+  }
+});
+
+test('非三插件、无原题链接、无效或冲突的原题身份沿用保留正文第一项', () => {
+  for (const scenario of ['普通文字', '外站链接', '缺少原题', '无效参数', '身份冲突', '不同题目链接']) {
+    const run = runtime(), rows = importedComments([true, false, false, false], 3);
+    if (scenario === '普通文字') rows[2].text = '查看原题';
+    if (scenario === '外站链接') rows[2].text = '[查看原题](https://example.com/questions/42)';
+    if (scenario === '缺少原题') rows[2].text = '<!-- DAGUANYUAN_QUESTION_ID:42 -->';
+    if (scenario === '无效参数') rows[2].text = rows[2].text.replace('question=42', 'question=0');
+    if (scenario === '身份冲突') rows[2].text = rows[2].text.replace('DAGUANYUAN_QUESTION_ID:42', 'DAGUANYUAN_QUESTION_ID:43');
+    if (scenario === '不同题目链接') rows[3].text = rows[2].text.replaceAll('42', '43');
+    const host = nativeHost(run, { a1: rows }); attachComments(host, 'a1');
+    run.addon.collapseComments(); host.drain();
+    assert.deepEqual(host.state.a1.map(row => row.collapsed), [false, true, true, true], scenario);
+  }
+});
+
+test('多选导入题卡和普通卡片逐张使用各自折叠规则', () => {
+  const run = runtime(), host = nativeHost(run, { a: importedComments([true, false, false, false], 3), b: comments([true, false, false]) });
+  attachComments(host, 'a'); attachComments(host, 'b');
+  run.controller.notebookController.mindmapView.selViewLst = [run.nodes.a, run.nodes.b];
+  run.addon.collapseComments(); host.drain();
+  assert.deepEqual(host.state.a.map(row => row.collapsed), [true, false, true, true]);
+  assert.deepEqual(host.state.b.map(row => row.collapsed), [false, true, true]);
+});
+
+test('原生评论集合中的原题位置可识别，只有一条原题评论时也会折叠', () => {
+  const run = runtime(), host = nativeHost(run, { a1: importedComments([false], 1, importedSources[2]) });
+  const raw = host.state.a1;
+  host.notes.a1.comments = () => ({ count: () => raw.length, objectAtIndex: i => ({ objectForKey: key => raw[i][key] }) });
+  run.addon.collapseComments(); host.drain(); assert.equal(host.state.a1[0].collapsed, true);
+});
+
+test('链接前方即使有多条手写评论也不写入，链接后方超过200条时正确分批', () => {
+  const run = runtime(), rows = importedComments(Array(407).fill(false), 4);
+  rows[0].type = rows[1].type = rows[2].type = 'PaintNote';
+  const host = nativeHost(run, { a1: rows }); attachComments(host, 'a1');
+  run.addon.collapseComments(); host.drain();
+  assert.deepEqual(host.writes.map(w => w.targets.length), [200, 200, 4]);
+  assert.ok(host.state.a1.slice(0, 3).every(row => !row.collapsed));
+  assert.ok(host.state.a1.slice(3).every(row => row.collapsed));
+});
+
+test('分批期间原题链接移动或消失立即停止，不使用旧位置继续折叠', () => {
+  for (const scenario of ['移动', '移除']) {
+    const run = runtime(), host = nativeHost(run, { a1: importedComments(Array(407).fill(false), 3) }); attachComments(host, 'a1');
+    run.addon.collapseComments(); run.advance(10); assert.equal(host.writes.length, 1);
+    if (scenario === '移动') {
+      [host.state.a1[1], host.state.a1[2]] = [host.state.a1[2], host.state.a1[1]];
+      host.state.a1.forEach((row, index) => { row.index = index + 1; });
+    }
+    else host.state.a1[2].text = '已移除链接';
+    // 模拟原始评论属性先更新、回执版本尚未变化，必须主动校验折叠起点。
+    host.drain(); assert.equal(host.writes.length, 1); assert.match(run.messages.at(-1), /COMMENT_CHANGED/);
+  }
+});
+
+test('原始评论集合与原生折叠回执数量不一致时不写入', () => {
+  const run = runtime(), host = nativeHost(run, { a1: comments([false, false, false]) });
+  host.notes.a1.comments = importedComments([false, false], 2);
+  run.addon.collapseComments(); host.drain(); assert.equal(host.writes.length, 0); assert.match(run.messages.at(-1), /COMMENT_CHANGED/);
+});

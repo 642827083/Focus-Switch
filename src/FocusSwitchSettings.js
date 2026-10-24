@@ -250,8 +250,12 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
       group.title.frame = { x: 16, y: count ? 16 : 6, width: Math.max(0, width - (count ? 142 : 60)), height: 24 };
       group.description.frame = count ? { x: width - 122, y: 19, width: 78, height: 18 }
         : { x: 16, y: 31, width: Math.max(0, width - 60), height: 18 };
+      const layer = group.arrow.layer;
+      const rotates = layer && typeof layer.setAffineTransform === "function";
+      if (rotates) layer.setAffineTransform({ a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 });
       group.arrow.frame = { x: width - 34, y: 21, width: 14, height: 14 };
-      if (typeof UIImageView !== "undefined") group.arrow.image = __FOCUS_NEXT_ICONS_GLOBAL__.image(addon, group.expanded ? "section-chevron-down" : "section-chevron-right");
+      if (typeof UIImageView !== "undefined") group.arrow.image = __FOCUS_NEXT_ICONS_GLOBAL__.image(addon, !rotates && group.expanded ? "section-chevron-down" : "section-chevron-right");
+      if (rotates) layer.setAffineTransform(group.expanded ? { a: 0, b: 1, c: -1, d: 0, tx: 0, ty: 0 } : { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 });
       group.divider.frame = { x: 16, y: 0, width: Math.max(0, width - 32), height: 0.5 };
       y += 56;
       group.keys.forEach(function (key, index) {
@@ -304,12 +308,34 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     if (!menu || !menu.panel.superview || menu.dragging) return;
     const group = menu.groups.find(function (item) { return item.key === key; });
     if (!group) return;
+    const layer = group.arrow.layer;
+    let from = group.expanded ? Math.PI / 2 : 0;
+    try {
+      const display = layer && typeof layer.presentationLayer === "function" && layer.presentationLayer();
+      const matrix = display && typeof display.affineTransform === "function" && display.affineTransform();
+      if (matrix && Number.isFinite(matrix.a) && Number.isFinite(matrix.b)) from = Math.atan2(matrix.b, matrix.a);
+    } catch (ignored) {}
     group.expanded = !group.expanded;
     const stored = {};
     menu.groups.forEach(function (item) { stored[item.key] = item.expanded; });
     try { NSUserDefaults.standardUserDefaults().setObjectForKey(JSON.stringify(stored), SECTIONS_KEY); }
     catch (error) { console.log(`[Focus Switch] 保存分组状态失败：${error && error.message || error}`); }
     layout(addon, true);
+    // 与大观园导入页一致，仅给箭头添加 160 毫秒的缓动旋转。
+    if (!layer || typeof layer.setAffineTransform !== "function" || typeof layer.addAnimationForKey !== "function"
+      || typeof CABasicAnimation === "undefined" || typeof CABasicAnimation.animationWithKeyPath !== "function"
+      || typeof CAMediaTimingFunction === "undefined" || typeof CAMediaTimingFunction.functionWithControlPoints !== "function"
+      || typeof CATransaction === "undefined" || typeof CATransaction.begin !== "function"
+      || typeof CATransaction.commit !== "function" || typeof CATransaction.setAnimationDuration !== "function") return;
+    try {
+      const animation = CABasicAnimation.animationWithKeyPath("transform.rotation.z");
+      if (!animation) return;
+      animation.fromValue = from; animation.toValue = group.expanded ? Math.PI / 2 : 0;
+      animation.timingFunction = CAMediaTimingFunction.functionWithControlPoints(0.25, 0.1, 0.25, 1);
+      CATransaction.begin();
+      try { CATransaction.setAnimationDuration(0.16); layer.addAnimationForKey(animation, "__FOCUS_NEXT_SECTION_ARROW__"); }
+      finally { CATransaction.commit(); }
+    } catch (error) { console.log(`[Focus Switch] 箭头过渡未启用：${error && error.message || error}`); }
   }
 
   function toggleSwitchRow(addon, sender) {

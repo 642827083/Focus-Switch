@@ -1,5 +1,6 @@
 JSB.require("FocusNextCore");
 JSB.require("FocusSwitchSource");
+JSB.require("FocusSwitchCommentDiagnostics");
 JSB.require("FocusSwitchComments");
 JSB.require("FocusSwitchIcons");
 JSB.require("FocusSwitchGroup");
