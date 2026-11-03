@@ -18,6 +18,7 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     { key: "groupedDisplay", title: "按钮布局", segments: ["分散", "集中"], action: "setButtonLayout:" },
     { key: "groupDirection", title: "排列方向", segments: ["竖向", "横向"], action: "setGroupDirection:" },
     { key: "crossLevel", title: "切换范围", segments: ["同级", "整张脑图"], controlWidth: 140, description: "仅切换当前卡片的同级兄弟卡片，到首尾时停止。", action: "setNavigationScope:" },
+    { key: "progress", title: "做题进度", action: "setProgressEnabled:" },
     { key: "next", title: "下一张", action: "setNextEnabled:" },
     { key: "previous", title: "上一张", action: "setPreviousEnabled:" },
     { key: "source", title: "查看原题", action: "setSourceEnabled:" },
@@ -28,7 +29,7 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
   const sections = [
     { key: "appearance", before: "iconDisplay", title: "外观与排列", keys: ["iconDisplay", "groupedDisplay", "groupDirection"], action: "toggleAppearanceSection:" },
     { key: "navigation", before: "crossLevel", title: "卡片切换", keys: ["crossLevel"], action: "toggleNavigationSection:" },
-    { key: "buttons", before: "next", title: "显示按钮", keys: ["next", "previous", "source", "ai", "collapseComments", "expandComments"], action: "toggleButtonsSection:" },
+    { key: "buttons", before: "progress", title: "显示按钮", keys: ["progress", "next", "previous", "source", "ai", "collapseComments", "expandComments"], action: "toggleButtonsSection:" },
   ];
 
   function readSections() {
@@ -282,7 +283,7 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     const menu = addon && addon.__focusNextSettings;
     if (!menu) return;
     const core = __FOCUS_NEXT_CORE_GLOBAL__;
-    const states = { enabled: core.enabled(), crossLevel: core.crossLevelEnabled(), next: core.nextEnabled(), previous: core.previousEnabled(), source: core.sourceEnabled(), ai: core.aiEnabled(),
+    const states = { enabled: core.enabled(), crossLevel: core.crossLevelEnabled(), next: core.nextEnabled(), previous: core.previousEnabled(), source: core.sourceEnabled(), ai: core.aiEnabled(), progress: core.progressEnabled(),
       collapseComments: core.collapseCommentsEnabled(), expandComments: core.expandCommentsEnabled(), iconDisplay: core.iconDisplay(), groupedDisplay: core.groupedDisplay() };
     menu.rows.forEach(function (row) {
       if (row.key === "groupDirection") row.control.selectedSegmentIndex = core.horizontalLayout() ? 1 : 0;
@@ -297,8 +298,8 @@ var __FOCUS_NEXT_SETTINGS_GLOBAL__ = (function () {
     });
     menu.groups[0].description.text = `${core.iconDisplay() ? "图标" : "文字"} · ${core.groupedDisplay() ? "集中" : "分散"} · ${core.horizontalLayout() ? "横向" : "竖向"}`;
     menu.groups[1].description.text = core.crossLevelEnabled() ? "整张脑图" : "同级卡片";
-    const count = ["next", "previous", "source", "ai", "collapseComments", "expandComments"].filter(function (key) { return states[key]; }).length;
-    menu.groups[2].description.text = `已开启 ${count}/6`;
+    const count = ["progress", "next", "previous", "source", "ai", "collapseComments", "expandComments"].filter(function (key) { return states[key]; }).length;
+    menu.groups[2].description.text = `已开启 ${count}/7`;
     menu.directionHint.text = core.groupedDisplay() ? "拖动任意按钮可移动整组。" : "排列方向在集中布局时生效。";
     layout(addon);
   }

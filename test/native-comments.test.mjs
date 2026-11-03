@@ -387,7 +387,8 @@ test("诊断包区分原生读取与写入失败，保留结构详情且不泄�
     host.notes.a1.comments = [{ type: 'TextNote', text: 'PRIVATE-TEXT' }, { type: 'PaintNote', drawing: 'PRIVATE-DRAWING' }];
     run.addon.collapseComments(); host.drain();
     const report = run.messages.at(-1);
-    assert.match(report, /DEBUG-CF1/);
+    assert.match(report, /评论折叠失败/);
+    assert.doesNotMatch(report, /DEBUG-CF1|情况 [AB]|插件作者|修复白名单|宿主未提供详情|卡片=1\/1/);
     assert.ok(report.includes(failureStage === 'read' ? '首次读取' : '写入'));
     assert.match(report, /commentIndex=2/); assert.match(report, /metadataVersion=7/);
     assert.match(report, /field=comments\[1\]\.metadata\.version/);
@@ -420,6 +421,7 @@ test("诊断使用可截图弹窗并支持原生评论集合，不记录未知�
   host.notes.a1.comments = () => ({ count: () => 2, objectAtIndex: index => ({ type: () => index ? 'PRIVATE-TYPE' : 'PaintNote', text: 'PRIVATE-TEXT' }) });
   run.addon.collapseComments(); host.drain();
   assert.equal(alerts.length, 1); assert.equal(run.messages.length, 0);
+  assert.doesNotMatch(alerts[0], /DEBUG-CF1|情况 [AB]|插件作者|宿主未提供详情/);
   assert.match(alerts[0], /评论数=2；PaintNote=1，其他\(string\)=1/);
   assert.doesNotMatch(alerts[0], /PRIVATE/);
 });
@@ -433,7 +435,7 @@ test("诊断包支持缺失、循环及原生字典详情，写入失败后的�
       if (failed) return { ok: false, error: { code: 'SAVE_FAILED', details: { commentIndex: 99 } } };
     } });
     run.addon.collapseComments(); host.drain();
-    assert.match(run.messages.at(-1), /DEBUG-CF1.*写入/s);
+    assert.match(run.messages.at(-1), /评论折叠失败.*写入/s);
     assert.match(run.messages.at(-1), /COMMENT_STATE_UNSUPPORTED/);
     assert.doesNotMatch(run.messages.at(-1), /commentIndex=99/);
     assert.equal(host.writes.length, 0);
@@ -445,7 +447,7 @@ test('诊断遇到卡片读取异常时不输出异常携带的正文', () => {
   const run = runtime(); const logs = []; run.context.console = { log: text => logs.push(String(text)) };
   run.context.Database = { sharedInstance() { return { getNoteById() { throw new Error('PRIVATE-NOTE-CONTENT'); } }; } };
   run.addon.collapseComments(); run.advance(20);
-  assert.match(run.messages.at(-1), /DEBUG-CF1/);
+  assert.match(run.messages.at(-1), /评论折叠失败/);
   assert.doesNotMatch(run.messages.at(-1) + logs.join(''), /PRIVATE/);
 });
 

@@ -13,7 +13,7 @@ function tree() {
 
 export function runtime(defaults = {}, width = 1024, height = 768) {
   class View {
-    constructor(frame) { this.frame = frame; this.layer = {}; this.subviews = []; this.hidden = false; }
+    constructor(frame) { this.frame = frame; this.layer = { addSublayer(layer) { (this.sublayers ||= []).push(layer); } }; this.subviews = []; this.hidden = false; }
     get bounds() { return { x: 0, y: 0, width: this.frame.width, height: this.frame.height }; }
     addSubview(view) { view.removeFromSuperview(); this.subviews.push(view); view.superview = this; }
     insertSubviewBelowSubview(view, sibling) {
@@ -78,6 +78,8 @@ export function runtime(defaults = {}, width = 1024, height = 768) {
       objectForKey(key) { return defaults[key]; }, setObjectForKey(value, key) { defaults[key] = value; },
     }; } },
     UIView: View, UILabel: View, UIImageView: View, UIButton: Button, UISwitch: Switch, UIScrollView: View, UISegmentedControl: SegmentedControl,
+    CAShapeLayer: { layer() { return {}; } },
+    UIBezierPath: { bezierPathWithArcCenterRadiusStartAngleEndAngleClockwise(center, radius, start, end, clockwise) { return { CGPath: { center, radius, start, end, clockwise } }; } },
     UIFont: { systemFontOfSize(size) { return size; }, boldSystemFontOfSize(size) { return size; } },
     UIColor: { whiteColor() { return color; }, darkGrayColor() { return color; }, grayColor() { return color; }, lightGrayColor() { return color; }, colorWithRedGreenBlueAlpha() { return color; } },
     UIPanGestureRecognizer: class { constructor(target, selector) { this.target = target; this.selector = selector; } },

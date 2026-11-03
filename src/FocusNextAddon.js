@@ -61,6 +61,9 @@ function createFocusNextAddon(mainPath) {
     setNextEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "next", Boolean(sender.on)); },
     setAiEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "ai", Boolean(sender.on)); },
     setSourceEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "source", Boolean(sender.on)); },
+    setProgressEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "progress", Boolean(sender.on)); },
+    showProgress: function () { __FOCUS_NEXT_PROGRESS_GLOBAL__.press(self); },
+    handleFocusProgressPan: function (recognizer) { __FOCUS_NEXT_UI_GLOBAL__.handleProgressPan(self, recognizer); },
     setCollapseCommentsEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "collapseComments", Boolean(sender.on)); },
     setExpandCommentsEnabled: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "expandComments", Boolean(sender.on)); },
     setIconDisplay: function (sender) { __FOCUS_NEXT_COMMANDS_GLOBAL__.apply(self, "iconDisplay", Boolean(sender.on)); },
@@ -139,6 +142,7 @@ function createFocusNextAddon(mainPath) {
       if (self.focusNextEnabled === false || !__FOCUS_NEXT_CORE_GLOBAL__.nextEnabled()) return;
       try {
         __FOCUS_NEXT_CORE_GLOBAL__.focusNext(self);
+        __FOCUS_NEXT_PROGRESS_GLOBAL__.refresh(self);
       }
       catch (error) {
         const message = error && error.message ? error.message : String(error);
@@ -155,6 +159,7 @@ function createFocusNextAddon(mainPath) {
       if (self.focusNextEnabled === false) return;
       try {
         __FOCUS_NEXT_CORE_GLOBAL__.focusPrevious(self);
+        __FOCUS_NEXT_PROGRESS_GLOBAL__.refresh(self);
       }
       catch (error) {
         const message = error && error.message ? error.message : String(error);

@@ -71,11 +71,14 @@ var __FOCUS_NEXT_COMMENT_DIAGNOSTICS_GLOBAL__ = (function () {
     ];
     // 未识别的宿主异常也可能带入正文，不能直接进入日志或弹窗。
     if (!error.safeDetails && localMessages.indexOf(error.message) < 0) error = failure(error);
-    const heading = PREFIX + " " + (request.collapsed ? "折叠" : "展开") + "；阶段=" + request.stage + "；卡片=" + (request.completed + 1) + "/" + request.ids.length;
+    const heading = "评论" + (request.collapsed ? "折叠" : "展开") + "失败；阶段=" + request.stage;
+    const visibleDetails = (error.safeDetails || []).filter(function (line) {
+      return line !== "宿主未提供详情" && line.indexOf("详情无可公开结构字段") !== 0;
+    });
     const report = heading + "\n已处理 " + request.completed + "/" + request.ids.length + " 张卡片；" + String(error.message || "评论操作失败")
-      + "\n" + summary(request.currentNote) + "\n" + (error.safeDetails || ["宿主未提供详情"]).join("；");
+      + "\n" + summary(request.currentNote) + (visibleDetails.length ? "\n" + visibleDetails.join("；") : "");
     addon.__focusNextCommentDiagnostic = report;
-    console.log(report);
+    console.log(PREFIX + " " + report);
     try {
       const app = Application.sharedInstance();
       if (typeof app.alert === "function") app.alert(report);

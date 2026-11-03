@@ -5,6 +5,7 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   const CROSS_LEVEL_ENABLED_KEY = "cn.marginnote.focus-next.cross-level-enabled";
   const AI_ENABLED_KEY = "cn.marginnote.focus-next.ai-enabled";
   const SOURCE_ENABLED_KEY = "cn.marginnote.focus-next.source-enabled";
+  const PROGRESS_ENABLED_KEY = "cn.marginnote.focus-next.progress-enabled";
   const COLLAPSE_COMMENTS_ENABLED_KEY = "cn.marginnote.focus-next.collapse-comments-enabled";
   const EXPAND_COMMENTS_ENABLED_KEY = "cn.marginnote.focus-next.expand-comments-enabled";
   const ICON_DISPLAY_KEY = "cn.marginnote.focus-next.icon-display";
@@ -188,6 +189,16 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
     return -1;
   }
 
+  function siblingProgress(addon) {
+    const note = navigationFocus(addon);
+    if (!note) return null;
+    const parent = member(note, "parentNote");
+    if (!parent) return { index: 1, total: 1 };
+    const siblings = items(member(parent, "childNotes"));
+    const index = siblingIndex(note, siblings);
+    return index < 0 ? null : { index: index + 1, total: siblings.length };
+  }
+
   function visit(note, visited) {
     const id = noteId(note);
     if (visited.some(function (entry) { return entry === note || (id && noteId(entry) === id); })) {
@@ -296,6 +307,8 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   function setAiEnabled(value) { return writeBoolean(AI_ENABLED_KEY, value); }
   function sourceEnabled() { return readBoolean(SOURCE_ENABLED_KEY, false); }
   function setSourceEnabled(value) { return writeBoolean(SOURCE_ENABLED_KEY, value); }
+  function progressEnabled() { return readBoolean(PROGRESS_ENABLED_KEY, false); }
+  function setProgressEnabled(value) { return writeBoolean(PROGRESS_ENABLED_KEY, value); }
   function collapseCommentsEnabled() { return readBoolean(COLLAPSE_COMMENTS_ENABLED_KEY, true); }
   function setCollapseCommentsEnabled(value) { return writeBoolean(COLLAPSE_COMMENTS_ENABLED_KEY, value); }
   function expandCommentsEnabled() { return readBoolean(EXPAND_COMMENTS_ENABLED_KEY, true); }
@@ -307,9 +320,9 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   function horizontalLayout() { return readBoolean(HORIZONTAL_LAYOUT_KEY, false); }
   function setHorizontalLayout(value) { return writeBoolean(HORIZONTAL_LAYOUT_KEY, value); }
 
-  return { currentFocus, rememberFocus, rememberedFocus, navigationFocus, noteId, focusNext, focusPrevious, showMessage,
+  return { currentFocus, rememberFocus, rememberedFocus, navigationFocus, noteId, focusNext, focusPrevious, siblingProgress, showMessage,
     enabled, setEnabled, nextEnabled, setNextEnabled, previousEnabled, setPreviousEnabled,
-    crossLevelEnabled, setCrossLevelEnabled, sourceEnabled, setSourceEnabled, aiEnabled, setAiEnabled,
+    crossLevelEnabled, setCrossLevelEnabled, sourceEnabled, setSourceEnabled, progressEnabled, setProgressEnabled, aiEnabled, setAiEnabled,
     collapseCommentsEnabled, setCollapseCommentsEnabled, expandCommentsEnabled, setExpandCommentsEnabled,
     iconDisplay, setIconDisplay, groupedDisplay, setGroupedDisplay, horizontalLayout, setHorizontalLayout };
 })();

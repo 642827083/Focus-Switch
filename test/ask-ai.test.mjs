@@ -82,7 +82,7 @@ test('问 AI 参与图标、集中横竖排列与设置计数，分散按钮不�
       assert.ok(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y);
     }
     r.addon.focusToolbarClick(); r.advance(300);
-    assert.equal(r.addon.__focusNextSettings.groups[2].description.text, '已开启 6/6');
+    assert.equal(r.addon.__focusNextSettings.groups[2].description.text, '已开启 6/7');
     r.addon.setAiEnabled({ on: false }); assert.equal(ai.superview, undefined);
   }
 });

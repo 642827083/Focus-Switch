@@ -101,7 +101,13 @@ var __FOCUS_NEXT_GROUP_GLOBAL__ = (function () {
     }
     entries.forEach(function (entry, index) {
       if (entry.button.superview !== group.view) group.view.addSubview(entry.button);
-      entry.button.frame = layout.items[index];
+      const frame = layout.items[index];
+      if (entry.button.__focusNextProgress) {
+        const width = Math.min(entry.width, frame.width), height = Math.min(entry.height, frame.height);
+        frame.x += (frame.width - width) / 2; frame.y += (frame.height - height) / 2;
+        frame.width = width; frame.height = height;
+      }
+      entry.button.frame = frame;
     });
     return true;
   }
