@@ -36,7 +36,8 @@ var __FOCUS_NEXT_SOURCE_GLOBAL__ = (function () {
       let address;
       try { address = decodeURIComponent(match[4]); } catch (ignored) { return null; }
       if (address.length > 8192 || /[\s<>]/.test(address)) return null;
-      if (match[1] === "math" ? !/^https:\/\/(?:www\.)?cxyonly\.fans\/math\/(?:practice\/(?:categories\/)?[1-9]\d*|questions\/[1-9]\d*)\/?(?:\?[^#]*)?$/.test(address)
+      // 数学新站去掉 /math 前缀；同时保留已有题卡的旧站原题链接。
+      if (match[1] === "math" ? !/^https:\/\/(?:www\.|math\.)?cxyonly\.fans\/(?:math\/)?(?:practice\/(?:categories\/)?[1-9]\d*|questions\/[1-9]\d*)\/?(?:\?[^#]*)?$/.test(address)
         : !/^https:\/\/www\.408os\.cn\/exercise\?[^#]+$/.test(address)) return null;
       return { url, provider: "daguanyuan", source: match[1], questionId: Number(match[2]) };
     }
@@ -108,7 +109,7 @@ var __FOCUS_NEXT_SOURCE_GLOBAL__ = (function () {
     } catch (ignored) {}
   }
 
-  function open(addon, ai) {
+  function capture(addon, ai) {
     const pressed = addon.__focusNextSourcePress;
     clear(addon);
     if (addon.focusNextEnabled === false || !enabled(ai)) return false;
@@ -122,6 +123,12 @@ var __FOCUS_NEXT_SOURCE_GLOBAL__ = (function () {
     if (validPress && pressed.selected && !current.selected && current.focusId === pressed.focusId) note = pressed.note;
     if (pressed && note && __FOCUS_NEXT_CORE_GLOBAL__.noteId(pressed.note) !== __FOCUS_NEXT_CORE_GLOBAL__.noteId(note)) throw new Error("选中题卡已变化，请重新点击查看原题");
     if (!note && validPress) note = pressed.note;
+    return { note, notebookId: current.notebookId, focusId: current.focusId, selected: current.selected };
+  }
+
+  function open(addon, ai, context) {
+    if (addon.focusNextEnabled === false || !enabled(ai)) return false;
+    const current = context || capture(addon, ai), note = current.note;
     if (!note) {
       // 测试阶段临时诊断，只在失败时显示，不记录题目内容或笔记 ID。
       const memory = addon.__focusNextLastFocus ? "有" : "无";
@@ -148,5 +155,5 @@ var __FOCUS_NEXT_SOURCE_GLOBAL__ = (function () {
     return null;
   }
 
-  return { sourceFor, foldBoundary, press, open, clear };
+  return { sourceFor, foldBoundary, press, open, clear, capture };
 })();

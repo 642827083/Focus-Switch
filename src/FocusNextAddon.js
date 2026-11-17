@@ -6,11 +6,13 @@ function createFocusNextAddon(mainPath) {
       self.__focusNextRememberToken = 0;
       self.__focusNextPlaceToken = 0;
       self.__focusNextClickToken = 0;
+      __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__.connect(self);
       __FOCUS_NEXT_SOURCE_GLOBAL__.clear(self);
       console.log("[Focus Switch] 插件已初始化");
     },
 
     sceneDidDisconnect: function () {
+      __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__.disconnect(self);
       self.__focusNextRememberToken += 1;
       self.__focusNextPlaceToken += 1;
       __FOCUS_NEXT_COMMANDS_GLOBAL__.cancelClick(self);
@@ -86,10 +88,13 @@ function createFocusNextAddon(mainPath) {
     openAi: function () {
       if (self.__focusNextSuppressTap) { self.__focusNextSuppressTap = false; __FOCUS_NEXT_SOURCE_GLOBAL__.clear(self); return; }
       if (!self.__focusAiButton || self.__focusAiButton.hidden) return;
-      try { __FOCUS_NEXT_SOURCE_GLOBAL__.open(self, true); }
+      try { __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__.open(self); }
       catch (error) { __FOCUS_NEXT_CORE_GLOBAL__.showMessage(self, String(error && error.message || error)); }
     },
     handleFocusAiButtonPan: function (recognizer) { __FOCUS_NEXT_UI_GLOBAL__.handleAiPan(self, recognizer); },
+    receiveAiWorkflows: function (notification) { __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__.receive(self, notification); },
+    chooseAiWorkflow: function (sender) { __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__.choose(self, sender); },
+    closeAiWorkflows: function () { __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__.close(self); },
 
     pressOriginal: function () { __FOCUS_NEXT_SOURCE_GLOBAL__.press(self); },
     pressComments: function () { __FOCUS_NEXT_COMMENTS_GLOBAL__.press(self); },
@@ -110,6 +115,7 @@ function createFocusNextAddon(mainPath) {
     },
 
     sceneWillResignActive: function () {
+      __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__.close(self);
       __FOCUS_NEXT_UI_GLOBAL__.finishDrag(self);
       __FOCUS_NEXT_COMMENTS_GLOBAL__.cancel(self);
       __FOCUS_NEXT_SOURCE_GLOBAL__.clear(self);
@@ -128,6 +134,7 @@ function createFocusNextAddon(mainPath) {
     controllerWillLayoutSubviews: function () {
       __FOCUS_NEXT_SETTINGS_GLOBAL__.layout(self);
       if (!self.__focusNextDragging) __FOCUS_NEXT_UI_GLOBAL__.place(self);
+      __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__.tick(self);
     },
 
     toggleFocusNext: function () {

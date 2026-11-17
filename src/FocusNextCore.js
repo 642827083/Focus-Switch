@@ -190,7 +190,10 @@ var __FOCUS_NEXT_CORE_GLOBAL__ = (function () {
   }
 
   function siblingProgress(addon) {
-    const note = navigationFocus(addon);
+    const notebook = member(studyController(addon), "notebookController");
+    const selected = items(member(member(notebook, "mindmapView"), "selViewLst"));
+    // 单击选中不会切换焦点，进度优先读取唯一选中的卡片。
+    const note = (selected.length === 1 && asNote(selected[0])) || navigationFocus(addon);
     if (!note) return null;
     const parent = member(note, "parentNote");
     if (!parent) return { index: 1, total: 1 };

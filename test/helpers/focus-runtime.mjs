@@ -1,6 +1,12 @@
 import vm from "node:vm";
 import { readFileSync } from "node:fs";
 
+export function websiteAi(run) {
+  run.addon.openAi();
+  const menu = run.addon.__focusNextAiMenu;
+  if (menu) run.addon.chooseAiWorkflow(menu.rows[0]);
+}
+
 function tree() {
   const notes = ["root", "a", "a1", "a2", "b", "b1"].map(noteId => ({ noteId }));
   const [root, a, a1, a2, b, b1] = notes;

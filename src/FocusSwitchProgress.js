@@ -57,7 +57,7 @@ var __FOCUS_NEXT_PROGRESS_GLOBAL__ = (function () {
     const core = __FOCUS_NEXT_CORE_GLOBAL__;
     if (addon.focusNextEnabled === false || !core.progressEnabled()) return;
     const state = core.siblingProgress(addon);
-    core.showMessage(addon, state ? `同级进度：第 ${state.index}/${state.total} 张` : "请先进入一张卡片的焦点");
+    core.showMessage(addon, state ? `同级进度：第 ${state.index}/${state.total} 张` : "请先选中一张卡片或进入卡片焦点");
   }
 
   return { create, refresh, press };

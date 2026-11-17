@@ -98,6 +98,46 @@ test("手动换焦点及同级增删重排均刷新，原生集合及只有一�
   assert.equal(button.title, "—"); assert.equal(button.__focusNextProgressRing.strokeEnd, 0);
 });
 
+test("单击选中卡片后数字、圆环和点击详情一起更新，无需先切换焦点", () => {
+  const run = runtime(), button = enable(run);
+  const callCount = run.calls.length;
+  const notebook = run.controller.notebookController;
+  notebook.mindmapView.selViewLst = [{ note: run.nodes.a2 }];
+  run.advance(160);
+  assert.equal(button.title, "2"); assert.equal(button.__focusNextProgressRing.strokeEnd, 1);
+  run.addon.showProgress(); assert.match(run.messages.at(-1), /第 2\/2 张/);
+  assert.equal(notebook.focusNote, run.nodes.a1);
+  assert.deepEqual(run.calls.slice(callCount), []);
+  notebook.mindmapView.selViewLst = [{ note: run.nodes.a1 }];
+  run.advance(160);
+  assert.equal(button.title, "1"); assert.equal(button.__focusNextProgressRing.strokeEnd, 0.5);
+});
+
+test("没有焦点也可按单选卡片的同级统计，兼容原生选中集合", () => {
+  const run = runtime(), button = enable(run);
+  const notebook = run.controller.notebookController;
+  notebook.focusNote = null;
+  run.addon.notebookWillClose(); run.addon.notebookWillOpen();
+  run.addon.setCrossLevelEnabled({ on: true });
+  notebook.mindmapView.selViewLst = () => ({ count: () => 1, objectAtIndex: () => ({ note: () => run.nodes.b }) });
+  run.advance(160);
+  assert.equal(button.title, "2"); assert.equal(button.__focusNextProgressRing.strokeEnd, 1);
+  notebook.mindmapView.selViewLst = [{ note: run.nodes.b1 }];
+  run.advance(160);
+  assert.equal(button.title, "1"); assert.equal(button.__focusNextProgressRing.strokeEnd, 1);
+});
+
+test("取消单选、多选或无法识别选中卡片时，进度恢复当前焦点", () => {
+  const run = runtime(), button = enable(run);
+  const notebook = run.controller.notebookController;
+  for (const selection of [[], [{ note: run.nodes.a1 }, { note: run.nodes.a2 }], [{}]]) {
+    notebook.mindmapView.selViewLst = [{ note: run.nodes.a2 }]; run.advance(160);
+    assert.equal(button.title, "2");
+    notebook.mindmapView.selViewLst = selection; run.advance(160);
+    assert.equal(button.title, "1"); assert.equal(button.__focusNextProgressRing.strokeEnd, 0.5);
+  }
+});
+
 test("只开启进度圈也能持续刷新，离开学习集后清除旧焦点并停止隐藏控件更新", () => {
   const run = runtime(), button = progressOnly(run);
   run.controller.notebookController.focusNote = run.nodes.a2; run.advance(160);
@@ -153,7 +193,7 @@ test("没有焦点时显示横线，根卡显示1，圆环能力缺失时仍可�
     if (missing === "path") run.context.UIBezierPath.bezierPathWithArcCenterRadiusStartAngleEndAngleClockwise = () => null;
     else run.context[missing] = undefined;
     const button = enable(run); assert.equal(button.title, "—");
-    run.addon.showProgress(); assert.match(run.messages.at(-1), /先进入/);
+    run.addon.showProgress(); assert.match(run.messages.at(-1), /选中.*焦点/);
     run.controller.notebookController.focusNote = run.nodes.root; run.advance(160);
     assert.equal(button.title, "1"); assert.equal(button.__focusNextProgressRing, undefined);
   }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runtime } from './helpers/focus-runtime.mjs';
+import { runtime, websiteAi } from './helpers/focus-runtime.mjs';
 
 const mathURL = 'https://www.cxyonly.fans/math/practice/categories/8?questionId=42';
 const cases = [
@@ -35,12 +35,12 @@ for (const info of cases) test('问 AI 使用当前题目身份并保留原题�
   const r = runtime(); card(r.nodes.a2, info); r.addon.setAiEnabled({ on: true });
   const before = JSON.stringify(r.nodes.a2.comments);
   r.controller.notebookController.mindmapView.selViewLst = [{ note: r.nodes.a2 }];
-  r.addon.pressAi(); r.addon.openAi();
+  r.addon.pressAi(); websiteAi(r);
   assert.equal(r.urls[0], 'marginnote4app://addon/' + info[0].replace('?action=open&', '?action=ask-ai&'));
   assert.equal(JSON.stringify(r.nodes.a2.comments), before);
   r.controller.notebookController.mindmapView.selViewLst = [];
   r.controller.notebookController.visibleFocusNote = r.nodes.a2;
-  r.addon.openAi(); assert.equal(r.urls[1], r.urls[0]);
+  websiteAi(r); assert.equal(r.urls[1], r.urls[0]);
 });
 
 test('问 AI 拒绝研可岸、普通卡、多选、身份冲突及按下后换题', () => {
@@ -53,7 +53,7 @@ test('问 AI 拒绝研可岸、普通卡、多选、身份冲突及按下后换�
     r.addon.pressAi();
     if (scenario === 'changed') r.controller.notebookController.visibleFocusNote = r.nodes.a2;
     if (scenario === 'disabled') r.addon.setAiEnabled({ on: false });
-    r.addon.openAi(); assert.equal(r.urls.length, 0, scenario);
+    websiteAi(r); assert.equal(r.urls.length, 0, scenario);
     if (scenario !== 'disabled') assert.ok(r.messages.length, scenario);
   }
 });
@@ -61,10 +61,10 @@ test('问 AI 拒绝研可岸、普通卡、多选、身份冲突及按下后换�
 test('问 AI 按下后选中项被宿主清空仍定位按下题目，拖动不触发跳转', () => {
   const r = runtime(); card(r.nodes.a2); r.addon.setAiEnabled({ on: true });
   r.controller.notebookController.mindmapView.selViewLst = [{ note: r.nodes.a2 }];
-  r.addon.pressAi(); r.controller.notebookController.mindmapView.selViewLst = []; r.addon.openAi();
+  r.addon.pressAi(); r.controller.notebookController.mindmapView.selViewLst = []; websiteAi(r);
   assert.equal(r.urls.length, 1);
   r.addon.handleFocusAiButtonPan({ state: 1 }); r.addon.handleFocusAiButtonPan({ state: 3 });
-  r.addon.openAi(); assert.equal(r.urls.length, 1);
+  websiteAi(r); assert.equal(r.urls.length, 1);
 });
 
 test('问 AI 参与图标、集中横竖排列与设置计数，分散按钮不重叠', () => {

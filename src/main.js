@@ -5,6 +5,7 @@ JSB.require("FocusSwitchComments");
 JSB.require("FocusSwitchIcons");
 JSB.require("FocusSwitchGroup");
 JSB.require("FocusSwitchProgress");
+JSB.require("FocusSwitchAiWorkflows");
 JSB.require("FocusNextUI");
 JSB.require("FocusSwitchSettings");
 JSB.require("FocusSwitchCommands");

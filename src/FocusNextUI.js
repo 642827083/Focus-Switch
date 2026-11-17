@@ -204,6 +204,7 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
       ![next, previous, source, addon.__focusProgressButton, addon.__focusAiButton, addon.__focusCollapseCommentsButton, addon.__focusExpandCommentsButton].some(function (button) { return button && !button.hidden; })) return;
     if (addon.focusNextEnabled !== false) __FOCUS_NEXT_CORE_GLOBAL__.rememberFocus(addon);
     __FOCUS_NEXT_PROGRESS_GLOBAL__.refresh(addon);
+    __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__.tick(addon);
     const view = viewFor(addon);
     const bounds = view && view.bounds;
     const size = bounds && `${bounds.width},${bounds.height}`;
@@ -225,6 +226,7 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
 
   function show(addon) {
     if (!addon) return false;
+    __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__.close(addon);
     if (addon.focusNextEnabled === false) { hide(addon); return false; }
     const view = viewFor(addon);
     if (!view) return false;
@@ -286,6 +288,7 @@ var __FOCUS_NEXT_UI_GLOBAL__ = (function () {
   }
 
   function hide(addon) {
+    __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__.close(addon);
     finishDrag(addon);
     __FOCUS_NEXT_GROUP_GLOBAL__.hide(addon);
     if (addon) {
