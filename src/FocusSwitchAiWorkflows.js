@@ -1,5 +1,9 @@
 var __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__ = (function () {
   const REQUEST = "cn.marginnote.ai-bridge.workflow.request.v1", RESPONSE = "cn.marginnote.ai-bridge.workflow.response.v1";
+  const INSTALL_PREFIX = "请安装并启用";
+  const INSTALL_PROMPT = INSTALL_PREFIX + "AI Bridge";
+  const DOWNLOAD_URL = "https://bbs.marginnote.com.cn/t/topic/68798";
+  const STATUS_FONT_SIZE = 12;
   const sites = { deepseek: "DeepSeek", doubao: "豆包", gpt: "ChatGPT", gemini: "Gemini" };
   function value(object, key) {
     let result = object && object[key];
@@ -26,12 +30,14 @@ var __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__ = (function () {
   }
   function request(addon, payload, callback) {
     const c = center();
-    if (!addon.__focusNextAiObserver || !c || typeof c.postNotificationNameObjectUserInfo !== "function") { callback({ ok: false, error: "请安装并启用支持联动的 AI Bridge 版本" }); return; }
+    if (!addon.__focusNextAiObserver || !c || typeof c.postNotificationNameObjectUserInfo !== "function") {
+      callback({ ok: false, error: INSTALL_PROMPT }, true); return;
+    }
     const id = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
     const pending = { id, callback }; addon.__focusNextAiRequest = pending;
     pending.timer = NSTimer.scheduledTimerWithTimeInterval(1.5, false, function () {
       if (addon.__focusNextAiRequest !== pending) return;
-      addon.__focusNextAiRequest = null; callback({ ok: false, error: "未收到 AI Bridge 响应，请确认已安装并启用联动版本" });
+      addon.__focusNextAiRequest = null; callback({ ok: false, error: INSTALL_PROMPT }, true);
     });
     try { c.postNotificationNameObjectUserInfo(REQUEST, addon.window, { payload: JSON.stringify(Object.assign({ version: 1, requestId: id }, payload)) }); }
     catch (error) { pending.timer.invalidate(); addon.__focusNextAiRequest = null; callback({ ok: false, error: "暂时无法连接 AI Bridge" }); }
@@ -111,7 +117,9 @@ var __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__ = (function () {
         return entry.button.hidden ? right : Math.max(right, entry.button.frame.x + entry.button.frame.width);
       }, 0), top: group.view.frame.y - 8, bottom: group.view.frame.y + group.view.frame.height + 8,
     } : null;
-    const content = menu.rows.length * 44 + 40 + (menu.status.text ? 48 : 0) + 8;
+    const statusHeight = menu.status.text ? 48 : 0;
+    const statusTop = menu.rows.length * 44 + 40;
+    const content = statusTop + statusHeight + 8;
     const frame = placement(bounds, anchor, obstacles, Math.min(286, bounds.width - 16), Math.min(400, bounds.height - 16, 44 + content), alignment);
     if (!frame) { close(addon); __FOCUS_NEXT_CORE_GLOBAL__.showMessage(addon, "请移动浮动按钮，为问 AI 面板留出空间"); return; }
     menu.width = frame.width; menu.view.frame = { x: frame.x, y: frame.y, width: frame.width, height: frame.height };
@@ -127,7 +135,16 @@ var __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__ = (function () {
       row.__focusNextName.numberOfLines = frame.width < 220 ? 2 : 1;
       row.__focusNextSite.frame = { x: frame.width - siteWidth - 16, y: 0, width: siteWidth, height: 44 };
     });
-    menu.status.frame = { x: 16, y: menu.rows.length * 44 + 40, width: frame.width - 32, height: 48 };
+    const statusWidth = frame.width - 32;
+    if (menu.download) {
+      const prefixWidth = INSTALL_PREFIX.length * STATUS_FONT_SIZE;
+      const linkWidth = 66;
+      // 极窄的面板让链接紧接在下一行，保留完整的链接和箭头。
+      const wraps = statusWidth < prefixWidth + linkWidth;
+      const lineHeight = wraps ? statusHeight / 2 : statusHeight;
+      menu.status.frame = { x: 16, y: statusTop, width: prefixWidth, height: lineHeight };
+      menu.download.frame = { x: wraps ? 16 : 16 + prefixWidth, y: wraps ? statusTop + lineHeight : statusTop, width: linkWidth, height: lineHeight };
+    } else menu.status.frame = { x: 16, y: statusTop, width: statusWidth, height: statusHeight };
     menu.scroll.contentSize = { width: frame.width, height: content };
   }
   function valid(addon, menu) {
@@ -157,12 +174,21 @@ var __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__ = (function () {
     menu.divider = new UIView({ x: 0, y: 0, width: 0, height: .5 }); menu.divider.backgroundColor = UIColor.colorWithRedGreenBlueAlpha(.9, .9, .92, 1);
     menu.divider.userInteractionEnabled = false; scroll.addSubview(menu.divider);
     menu.sectionTitle = label(scroll, "AI Bridge 工作流", 12, .48); menu.sectionTitle.font = UIFont.boldSystemFontOfSize(12);
-    menu.status = label(scroll, "正在读取 AI Bridge 工作流…", 12, .52); menu.status.numberOfLines = 2;
+    menu.status = label(scroll, "正在读取 AI Bridge 工作流…", STATUS_FONT_SIZE, .52); menu.status.numberOfLines = 2;
     row(addon, menu, "题库网站问 AI", "", "website"); parent.addSubview(view); layout(addon);
     if (addon.__focusNextAiMenu !== menu) return;
-    request(addon, { action: "list", noteId: __FOCUS_NEXT_CORE_GLOBAL__.noteId(context.note), notebookId: context.notebookId }, function (response) {
+    request(addon, { action: "list", noteId: __FOCUS_NEXT_CORE_GLOBAL__.noteId(context.note), notebookId: context.notebookId }, function (response, unavailable) {
       if (addon.__focusNextAiMenu !== menu) return;
-      if (!response.ok) menu.status.text = response.error || "无法读取 AI Bridge 工作流";
+      if (unavailable) {
+        menu.status.text = INSTALL_PREFIX;
+        const download = new UIButton({ x: 0, y: 0, width: 0, height: 0 });
+        download.setTitleForState("AI Bridge↗", 0);
+        download.titleLabel.font = UIFont.systemFontOfSize(STATUS_FONT_SIZE);
+        download.setTitleColorForState(UIColor.colorWithRedGreenBlueAlpha(.16, .39, .78, 1), 0);
+        download.addTargetActionForControlEvents(addon, "chooseAiWorkflow:", 1 << 6);
+        menu.download = download;
+        menu.scroll.addSubview(download);
+      } else if (!response.ok) menu.status.text = response.error || "无法读取 AI Bridge 工作流";
       else if (!Array.isArray(response.items) || response.items.length > 20 || typeof response.token !== "string") menu.status.text = "AI Bridge 返回的工作流列表无效";
       else {
         menu.token = response.token;
@@ -176,12 +202,19 @@ var __FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__ = (function () {
   }
   function choose(addon, sender) {
     const menu = addon.__focusNextAiMenu;
-    if (!menu || menu.rows[Number(sender.tag)] !== sender) return;
+    if (!menu || !sender) return;
+    const download = sender === menu.download;
+    if (!download && menu.rows[Number(sender.tag)] !== sender) return;
     try {
       if (!valid(addon, menu)) throw new Error("卡片或学习集已切换，请重新打开问 AI");
       const id = sender.__focusNextWorkflowId; close(addon);
       if (id === "website") __FOCUS_NEXT_SOURCE_GLOBAL__.open(addon, true, menu.context);
-      else request(addon, { action: "run", token: menu.token, id }, function (response) { if (!response.ok) __FOCUS_NEXT_CORE_GLOBAL__.showMessage(addon, response.error || "无法执行工作流"); });
+      else if (download) {
+        const app = Application.sharedInstance();
+        const url = typeof NSURL !== "undefined" && typeof NSURL.URLWithString === "function" && NSURL.URLWithString(DOWNLOAD_URL);
+        if (!url || !app || typeof app.openURL !== "function") throw new Error("无法打开 AI Bridge 下载页面");
+        app.openURL(url);
+      } else request(addon, { action: "run", token: menu.token, id }, function (response) { if (!response.ok) __FOCUS_NEXT_CORE_GLOBAL__.showMessage(addon, response.error || "无法执行工作流"); });
     } catch (error) { close(addon); __FOCUS_NEXT_CORE_GLOBAL__.showMessage(addon, String(error.message || error)); }
   }
   return { connect, disconnect, close, open, receive, choose, tick };

@@ -40,6 +40,33 @@ function linked({ items = [workflow()], enabled = true, width = 1024, height = 7
 function open(h) { h.run.addon.pressAi(); h.run.addon.openAi(); return h.run.addon.__focusNextAiMenu; }
 function choose(h, index = 1) { h.run.addon.chooseAiWorkflow(h.run.addon.__focusNextAiMenu.rows[index]); }
 
+test('AI Bridge 无法联动时，安装提示里的链接能打开社区下载帖', () => {
+  for (const canRequest of [false, true]) {
+    const run = runtime();
+    if (canRequest) {
+      const center = { addObserverSelectorName() {}, postNotificationNameObjectUserInfo() {} };
+      run.context.NSNotificationCenter = { defaultCenter: () => center };
+      run.context.__FOCUS_NEXT_AI_WORKFLOWS_GLOBAL__.connect(run.addon);
+    }
+    run.addon.setAiEnabled({ on: true });
+    const menu = open({ run });
+    if (canRequest) {
+      assert.match(menu.status.text, /正在读取/);
+      run.advance(1600);
+    }
+    assert.equal(menu.status.text, '请安装并启用');
+    const download = menu.scroll.subviews.find(view => view.title === 'AI Bridge↗');
+    assert.ok(download);
+    assert.equal(download.frame.x, menu.status.frame.x + menu.status.frame.width);
+    assert.equal(download.frame.y, menu.status.frame.y);
+    assert.ok(download.frame.y + download.frame.height <= menu.scroll.contentSize.height);
+    assert.equal(menu.rows.length, 1);
+    assert.deepEqual(run.urls, []);
+    download.target[download.selector.replace(':', '')](download);
+    assert.deepEqual(run.urls, ['https://bbs.marginnote.com.cn/t/topic/68798']);
+  }
+});
+
 integration('两个独立 JS 上下文通过通知读取工作流，列表不执行上传也不传递提示词或卡片内容', () => {
   const h = linked({ items: [workflow(), { ...workflow('wf-two', 'gpt'), name: '检查答案' }] }), menu = open(h);
   assert.equal(menu.rows.length, 3);
@@ -91,11 +118,13 @@ integration('列表打开后换卡、跨学习集、多选、关闭总开关或�
 
 integration('AI Bridge 未启用、列表为空或被更新时提示清楚，原网站入口仍可用', () => {
   const offline = linked({ enabled: false }), menu = open(offline);
-  offline.run.advance(1600); assert.match(menu.status.text, /未收到 AI Bridge/);
-  assert.equal(menu.rows.length, 1);
+  offline.run.advance(1600); assert.equal(menu.status.text, '请安装并启用');
+  assert.equal(menu.rows[0].subviews[0].text, '题库网站问 AI');
   offline.run.nodes.a1.comments = [{ text: '[查看原题](marginnote4app://addon/jifengjincao-bridge?action=open&paper=1&question=2)' }];
   choose(offline, 0); assert.match(offline.run.urls[0], /action=ask-ai/);
-  const empty = linked({ items: [] }); assert.match(open(empty).status.text, /添加工作流/);
+  const empty = linked({ items: [] }), emptyMenu = open(empty);
+  assert.match(emptyMenu.status.text, /添加工作流/);
+  assert.equal(emptyMenu.rows.length, 1);
   const changed = linked(); open(changed); changed.update({ ...changed.record(), revision: 'new', items: [] }); choose(changed);
   assert.equal(changed.runs.length, 0); assert.match(changed.run.messages.at(-1), /已更新/);
 });
